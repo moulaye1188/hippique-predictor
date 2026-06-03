@@ -95,127 +95,135 @@ class DataImporter:
     def _parse_tabular_format(text: str) -> List[Dict]:
         """
         Parse structured tabular format from Le Journal Hippique PDF
-        Format: N° | CHEVAUX | JOCKEYS | ENTRAINEURS | ... | POIDS | ARRIVEE
-        Example row: 01 | MUST BAY | A.THOMAS | C.Y.LERNER | ... | 56,0 | 3-3
+        The PDF has a complex layout:
+        - PAGE 0: Analysis text with horse descriptions
+        - PAGE 1: Main data table with columns:
+          N° | AGE | CORDE | POIDS | PERF | GAINS | CHEVAUX | JOCKEYS | ENTRAINEURS | PROPRIETAIRES
         
-        Key insight: The rightmost columns contain ARRIVEE (yesterday's result)
-        Format is typically: 01 | MUST BAY | ... | weights | ARRIVEE
+        Key: Look for lines with format "01  M.3  2  62.KG  1.3.3.5.2  39 618  MUST BAY  C&Y.LERNER  R.THOMAS"
+        Strategy: Find lines that START with two digits (horse number 01-20)
         """
         horses = []
         lines = text.split('\n')
         
-        # Find the table section (look for N° | CHEVAUX header or pipe-separated format)
-        in_table = False
-        table_lines = []
+        # Skip everything before the actual data table
+        # The table starts after "N°" header and contains lines like "01  M.3  2  62.KG ..."
+        # We look for the pattern where a line starts with 2 digits (horse number)
         
-        for i, line in enumerate(lines):
+        table_started = False
+        for line in lines:
             line_stripped = line.strip()
             
-            # Detect table start
-            if 'CHEVAUX' in line_stripped or ('N°' in line_stripped and 'JOCKEYS' in line_stripped):
-                in_table = True
+            if not line_stripped:
                 continue
             
-            # Stop at section breaks
-            if in_table and ('LES MEILLEURS' in line_stripped or 'HORAIRES' in line_stripped or 
-                            'PMU' in line_stripped or '---PAGE' in line_stripped or
-                            re.match(r'^\s*$', line_stripped)):
-                break
-            
-            if in_table and line_stripped:
-                table_lines.append(line_stripped)
-        
-        # Parse each table line
-        for line in table_lines:
-            if not line or len(line) < 5:
+            # Skip header and analysis sections
+            if any(x in line_stripped for x in 
+                   ['CONCURRENTS', 'METRES', 'EUROS', 'QUARTE', 'NOCTURNE', 'PRIX',
+                    'Handicapé', 'S\'il trouve', 'Cette fois', 'PMU', 'LES MEILLEURS',
+                    'HORAIRES', 'ARRET', 'DEPART', 'TURF', 'TIERCE', 'MAGAZINE',
+                    'ENTRAINEURS EN FORME', 'JOCKEYS EN FORME', 'FAVORIS',
+                    'SECONDES CHANCES', 'OUTSIDERS', 'FORME :', 'CLASSE :', 'PROGRES',
+                    'REGULARITE', 'APTITUDES', 'CLASSEMENT', 'CHEVAUX JOCKEYS ENTRAINEURS']):
                 continue
             
-            # Skip header lines
-            if 'CHEVAUX' in line or 'JOCKEYS' in line or 'ENTRAINEURS' in line or \
-               'PROPRIET' in line or 'POIDS' in line or 'PERF' in line or \
-               'GAINS' in line or 'TURF' in line:
+            # Detect table start: look for "01  M.3  ..." pattern or "N°" header
+            if 'N°' in line_stripped and ('CHEVAUX' in line_stripped or 'AGE' in line_stripped):
+                table_started = True
                 continue
             
-            try:
-                # Parse pipe-separated or space-separated columns
-                if '|' in line:
-                    parts = [p.strip() for p in line.split('|')]
-                else:
-                    # Try space-separated with varying spaces
-                    parts = re.split(r'\s{2,}', line)
+            # Parse table lines
+            if table_started:
+                # Stop at end markers
+                if 'LES MEILLEURS' in line_stripped or 'HORAIRES' in line_stripped or \
+                   'ARRET' in line_stripped or '1 2 3 4 5 6 7 8 9' in line_stripped:
+                    break
                 
-                if len(parts) < 2:
+                # Match lines starting with horse number (01-20)
+                horse_match = re.match(r'^(\d{1,2})\s+(.+)$', line_stripped)
+                if not horse_match:
                     continue
                 
-                # Extract number and horse name from first two parts
-                horse_num_match = re.match(r'^(\d{1,2})', parts[0])
-                if not horse_num_match:
+                horse_num = int(horse_match.group(1))
+                
+                # Validate horse number is in reasonable range
+                if not (1 <= horse_num <= 25):
                     continue
                 
-                horse_num = int(horse_num_match.group(1))
-                horse_name = parts[1].strip() if len(parts) > 1 else None
+                rest = horse_match.group(2)
                 
-                # Filter invalid horse names
-                if not horse_name or horse_name in ['CHEVAUX', 'N°', 'JOCKEYS', 'ENTRAINEURS']:
+                # Split by multiple spaces or tabs
+                parts = re.split(r'\s{2,}|\t+', rest)
+                
+                if len(parts) < 5:
                     continue
                 
-                # Skip lines that are clearly headers or totals
-                if any(x in horse_name.upper() for x in ['MEILLEUR', 'TOTAL', 'HEURE', 'DEPART']):
+                # Format: N° | AGE | CORDE | POIDS | PERF | GAINS | CHEVAUX | JOCKEYS | ENTRAINEURS | PROPRIETAIRES
+                # After splitting: parts[0]=age, parts[1]=corde, parts[2]=poids, ..., parts[5+]=horse_name, jockey, trainer, owner
+                
+                # Find horse name - it should be all caps and come after GAINS
+                horse_name = None
+                jockey = None
+                trainer = None
+                owner = None
+                age = None
+                weight = None
+                
+                # Parse age (format: M.3, F.3, H.3)
+                if len(parts) > 0:
+                    age_str = parts[0].strip()
+                    age_match = re.search(r'(\d+)', age_str)
+                    if age_match:
+                        age = int(age_match.group(1))
+                
+                # Parse weight (format: 62.KG, 59.KG)
+                if len(parts) > 2:
+                    weight_str = parts[2].strip()
+                    weight_match = re.search(r'([\d.]+)', weight_str)
+                    if weight_match:
+                        try:
+                            weight = float(weight_match.group(1))
+                        except:
+                            pass
+                
+                # Horse name is typically parts[5] or later (after GAINS column which is numeric)
+                # Look for the first part that's NOT purely numeric/dots
+                horse_idx = -1
+                for i in range(5, len(parts)):
+                    part = parts[i].strip()
+                    # Horse names are uppercase letters, skip if purely numeric or very short
+                    if part and not re.match(r'^[\d.]+$', part) and len(part) > 2:
+                        horse_idx = i
+                        break
+                
+                if horse_idx >= 0:
+                    horse_name = parts[horse_idx].strip().upper()
+                    jockey = parts[horse_idx + 1].strip() if horse_idx + 1 < len(parts) else None
+                    trainer = parts[horse_idx + 2].strip() if horse_idx + 2 < len(parts) else None
+                    owner = parts[horse_idx + 3].strip() if horse_idx + 3 < len(parts) else None
+                
+                # Filter invalid entries
+                if not horse_name or any(x in horse_name for x in 
+                                       ['N°', 'CHEVAUX', 'JOCKEYS', 'ENTRAINEURS', 'GAINS', 'POIDS']):
                     continue
                 
                 horse = {
                     'horse_number': horse_num,
-                    'horse_name': horse_name
+                    'horse_name': horse_name,
                 }
                 
-                # Try to extract jockey (usually part 2)
-                if len(parts) > 2:
-                    jockey = parts[2].strip()
-                    if jockey and jockey not in ['JOCKEYS', 'ENTRAINEURS', ''] and len(jockey) > 1:
-                        horse['jockey'] = jockey
-                
-                # Try to extract trainer (usually part 3)
-                if len(parts) > 3:
-                    trainer = parts[3].strip()
-                    if trainer and trainer not in ['ENTRAINEURS', ''] and len(trainer) > 1:
-                        horse['trainer'] = trainer
-                
-                # Extract age (usually part 4-5, format: M.3, F.3, etc.)
-                if len(parts) > 4:
-                    age_str = parts[4].strip()
-                    age_match = re.search(r'(\d+)', age_str)
-                    if age_match:
-                        horse['age'] = int(age_match.group(1))
-                
-                # Last 1-2 parts usually contain: POIDS (weight) and ARRIVEE (result position)
-                # Format of ARRIVEE: "3-3", "1/1", "1-4/1", etc.
-                # We'll process right-to-left
-                
-                # Last part is ARRIVEE (result position) - format like "3-3", "1/1", "2", etc.
-                if len(parts) >= 2:
-                    last_part = parts[-1].strip()
-                    # Parse arrival/position - first number is the rank
-                    arrival_match = re.search(r'^(\d+)(?:[/-].*)?', last_part)
-                    if arrival_match:
-                        result_pos = int(arrival_match.group(1))
-                        # Only set if it's a valid position (1-20)
-                        if 1 <= result_pos <= 20:
-                            horse['result_position'] = result_pos
-                
-                # Try weight from second-to-last if available
-                if len(parts) >= 3:
-                    weight_str = parts[-2].strip()
-                    weight_match = re.search(r'([\d.]+)\s*(?:kg|KG)?', weight_str)
-                    if weight_match:
-                        try:
-                            horse['weight'] = float(weight_match.group(1))
-                        except:
-                            pass
+                if age:
+                    horse['age'] = age
+                if weight:
+                    horse['weight'] = weight
+                if jockey:
+                    horse['jockey'] = jockey
+                if trainer:
+                    horse['trainer'] = trainer
+                if owner:
+                    horse['owner'] = owner
                 
                 horses.append(horse)
-            
-            except (ValueError, IndexError) as e:
-                continue
         
         return horses if horses else []
     

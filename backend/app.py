@@ -18,7 +18,10 @@ from data_import import import_and_process, OddsFeatureExtractor
 from correlation_analysis import CorrelationAnalyzer
 from model_retraining import ModelRetrainer, prepare_features_for_training
 from analytics import PredictionAnalytics
+from pdf_integration import parse_pdf_file
+from pdf_integration import parse_pdf_file
 from advanced_pdf_parser import AdvancedPDFParser
+from pdf_parser_v2 import parse_pdf_with_pdfplumber
 
 # Initialize Flask app
 app = Flask(__name__, 
@@ -353,14 +356,12 @@ def load_race_from_pdf():
         temp_path = f"/tmp/{secure_filename(file.filename)}"
         file.save(temp_path)
         
-        # Parse PDF
-        parser = AdvancedPDFParser()
-        race_info, horses_df = parser.parse_pdf(temp_path)
+        # Parse PDF - use new pdfplumber parser
+        race_info, horses_df = parse_pdf_file(temp_path)
         
         # Validate
-        is_valid, errors = parser.validate_race_info()
-        if not is_valid:
-            return jsonify({'error': 'Invalid PDF data', 'details': errors}), 400
+        if horses_df is None or horses_df.empty:
+            return jsonify({'error': 'Failed to extract horses from PDF'}), 400
         
         # Create race in database
         race_id = save_race(
