@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Système Cumulatif - Chevaux</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; margin-bottom: 30px; }
+        h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .subtitle { opacity: 0.9; }
+        
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0; }
+        .metric-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .metric-card h3 { color: #667eea; font-size: 0.9em; margin-bottom: 10px; text-transform: uppercase; }
+        .metric-card .value { font-size: 2.5em; font-weight: bold; color: #333; }
+        
+        .button-group { display: flex; gap: 10px; margin: 20px 0; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; }
+        
+        .table-container { overflow-x: auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: #f0f0f0; }
+        th { padding: 15px; text-align: left; font-weight: 600; color: #333; border-bottom: 2px solid #667eea; }
+        td { padding: 15px; border-bottom: 1px solid #eee; }
+        tr:hover { background: #f9f9f9; }
+        
+        .section { background: white; padding: 30px; border-radius: 10px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h2 { color: #667eea; margin-bottom: 20px; font-size: 1.8em; }
+        
+        .status { padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.loading { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        
+        .import-section { background: white; padding: 20px; border-radius: 10px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; }
+        input[type="file"] { padding: 10px; border: 1px solid #ddd; border-radius: 5px; width: 100%; }
+        
+        .stat-highlight { background: #e7f3ff; padding: 10px; border-left: 4px solid #667eea; margin: 10px 0; }
+        .stat-highlight strong { color: #667eea; }
+        
+        footer { background: #333; color: white; padding: 20px; text-align: center; margin-top: 40px; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🐴 Système Cumulatif - Chevaux</h1>
+            <p class="subtitle">Vue en temps réel des chevaux et de leurs statistiques accumulées</p>
+        </header>
+
+        <div id="statusMessage" class="status hidden"></div>
+
+        <!-- Section 1: Vue d'ensemble -->
+        <div class="section">
+            <h2>📊 Vue d'ensemble du Système</h2>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <h3>Chevaux Uniques</h3>
+                    <div class="value" id="totalHorses">0</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Courses Tracées</h3>
+                    <div class="value" id="totalRaces">0</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Victoires Totales</h3>
+                    <div class="value" id="totalWins">0</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Podiums</h3>
+                    <div class="value" id="totalPodiums">0</div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="loadHorses()">🔄 Charger Chevaux</button>
+            </div>
+        </div>
+
+        <!-- Section 2: Chevaux avec stats cumulatives -->
+        <div class="section">
+            <h2>🏇 Chevaux en Base de Données</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#ID</th>
+                            <th>Nom du Cheval</th>
+                            <th>Jockey</th>
+                            <th>Entraîneur</th>
+                            <th>Courses</th>
+                            <th>Victoires</th>
+                            <th>Podiums</th>
+                            <th>Position Moy.</th>
+                            <th>Taux Victoire</th>
+                        </tr>
+                    </thead>
+                    <tbody id="horsesTable">
+                        <tr><td colspan="9" style="text-align: center;">Chargement...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Section 3: Import de données -->
+        <div class="section">
+            <h2>📤 Importer un Fichier</h2>
+            <div class="import-section">
+                <div class="form-group">
+                    <label for="fileInput">Sélectionner un fichier PDF ou CSV:</label>
+                    <input type="file" id="fileInput" accept=".pdf,.csv,.txt">
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="importFile()">📥 Importer</button>
+                </div>
+            </div>
+
+            <div id="importStats" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- Section 4: Infos système -->
+        <div class="section">
+            <h2>ℹ️ À Propos du Système</h2>
+            <div class="stat-highlight">
+                <strong>Système Cumulatif:</strong> Chaque PDF importé enrichit la base de données. Les chevaux existants accumulent des statistiques (courses, victoires, podiums, position moyenne).
+            </div>
+            <div class="stat-highlight">
+                <strong>Bénéfice:</strong> Le modèle ML apprend sur des données réelles accumulées, pas synthétiques. Plus de PDFs = meilleure précision des prédictions.
+            </div>
+            <div class="stat-highlight">
+                <strong>Fonctionnement:</strong> Un cheval est identifié par (nom + jockey + trainer). Quand il apparaît dans un nouveau PDF, ses stats sont mises à jour automatiquement.
+            </div>
+        </div>
+
+        <footer>
+            <p>🐴 Système de Prédiction Hippique | Base de Données Cumulative</p>
+        </footer>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            if (type !== 'loading') {
+                setTimeout(() => statusDiv.classList.add('hidden'), 5000);
+            }
+        }
+
+        async function loadHorses() {
+            showStatus('Chargement des chevaux...', 'loading');
+            try {
+                const response = await fetch(`${API_URL}/horses`);
+                if (!response.ok) throw new Error('Erreur API');
+                const data = await response.json();
+
+                // Update metrics
+                document.getElementById('totalHorses').textContent = data.total_horses;
+                
+                const totalRaces = data.horses.reduce((sum, h) => sum + (h.total_races || 0), 0);
+                const totalWins = data.horses.reduce((sum, h) => sum + (h.wins || 0), 0);
+                const totalPodiums = data.horses.reduce((sum, h) => sum + (h.podiums || 0), 0);
+
+                document.getElementById('totalRaces').textContent = totalRaces;
+                document.getElementById('totalWins').textContent = totalWins;
+                document.getElementById('totalPodiums').textContent = totalPodiums;
+
+                // Update table
+                const tbody = document.getElementById('horsesTable');
+                if (data.horses.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Aucun cheval en base de données</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.horses.map(horse => {
+                    const winRate = horse.total_races > 0 ? ((horse.wins / horse.total_races) * 100).toFixed(1) : 0;
+                    return `
+                        <tr>
+                            <td>#${horse.id}</td>
+                            <td><strong>${horse.horse_name}</strong></td>
+                            <td>${horse.jockey || '-'}</td>
+                            <td>${horse.trainer || '-'}</td>
+                            <td>${horse.total_races}</td>
+                            <td><strong>${horse.wins}</strong></td>
+                            <td><strong>${horse.podiums}</strong></td>
+                            <td>${horse.avg_position ? horse.avg_position.toFixed(2) : '-'}</td>
+                            <td>${winRate}%</td>
+                        </tr>
+                    `;
+                }).join('');
+
+                showStatus(`✅ ${data.total_horses} chevaux chargés!`, 'success');
+            } catch (error) {
+                showStatus(`Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        async function importFile() {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) {
+                alert('Sélectionnez un fichier');
+                return;
+            }
+
+            showStatus('Importation en cours...', 'loading');
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${API_URL}/import`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (!response.ok) throw new Error(data.error);
+
+                // Display import stats
+                const statsHtml = `
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <h3>Courses Importées</h3>
+                            <div class="value">${data.imported_races}</div>
+                        </div>
+                        <div class="metric-card">
+                            <h3>Chevaux Uniques en BD</h3>
+                            <div class="value">${data.total_horses_in_system}</div>
+                        </div>
+                        <div class="metric-card">
+                            <h3>Nouveaux Chevaux</h3>
+                            <div class="value">${data.new_horses_added}</div>
+                        </div>
+                        <div class="metric-card">
+                            <h3>Chevaux Mis à Jour</h3>
+                            <div class="value">${data.updated_horses}</div>
+                        </div>
+                    </div>
+                    <div class="stat-highlight">
+                        <strong>Message:</strong> ${data.message}
+                    </div>
+                `;
+                document.getElementById('importStats').innerHTML = statsHtml;
+
+                showStatus(`✅ Import réussi! ${data.message}`, 'success');
+                
+                // Reload horses list
+                setTimeout(loadHorses, 500);
+            } catch (error) {
+                showStatus(`Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        // Load horses on page load
+        window.addEventListener('load', loadHorses);
+    </script>
+</body>
+</html>

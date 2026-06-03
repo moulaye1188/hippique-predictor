@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # Main Flask Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hippique-predictor
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - PYTHONUNBUFFERED=1
+    networks:
+      - hippique-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  hippique-network:
+    driver: bridge
+
+volumes:
+  app_data:
+  app_models:

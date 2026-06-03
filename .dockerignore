@@ -1,0 +1,15 @@
+.dockerignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.venv
+.env
+.git
+.gitignore
+*.log
+.DS_Store
+node_modules/
+.pytest_cache/

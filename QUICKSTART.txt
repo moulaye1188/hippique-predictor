@@ -1,0 +1,167 @@
+================================================================================
+🐴 PRÉDICTEUR HIPPIQUE - DÉMARRAGE RAPIDE
+================================================================================
+
+ÉTAPE 1: PRÉREQUIS
+==================
+✓ Windows 10/11
+✓ Docker Desktop installé et lancé (https://www.docker.com/products/docker-desktop)
+✓ Navigateur web (Chrome, Firefox, Edge, Safari)
+
+
+ÉTAPE 2: LANCER L'APPLICATION
+==============================
+
+OPTION A - Windows (Plus simple) 🖥️
+-----------------------------------
+1. Double-cliquez sur "start.bat" dans le dossier du projet
+2. Attendez 40 secondes (entraînement du modèle)
+3. Le navigateur s'ouvrira automatiquement sur http://localhost:5000
+
+
+OPTION B - PowerShell (Contrôle manuel)
+----------------------------------------
+1. Ouvrez PowerShell
+2. Naviguez vers le dossier:
+   cd "c:\Users\USER\Desktop\projet fintech\algo proba"
+
+3. Lancez l'application:
+   docker-compose up -d
+
+4. Attendez 40 secondes
+5. Ouvrez le navigateur: http://localhost:5000
+
+
+OPTION C - Terminal/CMD (Sans Docker Compose)
+----------------------------------------------
+1. Ouvrez CMD ou PowerShell
+2. Naviguez vers le dossier
+3. Lancez: docker build -t hippique . && docker run -p 5000:5000 hippique
+
+
+ÉTAPE 3: UTILISER L'APPLICATION
+=================================
+1. Remplissez les informations de la course (date, hippodrome, etc.)
+2. Ajoutez les chevaux avec:
+   - Numéro
+   - Nom
+   - Description (texte important!)
+   - Cotes (ex: 77/1)
+3. Cliquez sur "Générer Pronostic"
+4. Consultez les résultats et graphiques
+
+
+ÉTAPE 4: ARRÊTER L'APPLICATION
+================================
+PowerShell:    docker-compose down
+Windows:       Fermez le terminal ou pressez Ctrl+C
+
+
+INFORMATIONS UTILES
+====================
+Interface:     http://localhost:5000
+Santé API:     http://localhost:5000/api/health
+Logs:          docker-compose logs -f app
+Status:        docker-compose ps
+
+
+TROUBLESHOOTING
+================
+
+❌ "Connection refused"
+   → Docker n'est pas lancé ou l'application démarre
+   → Attendre 40 secondes
+   → Vérifier: docker-compose ps
+
+❌ "Port 5000 already in use"
+   → Changer le port dans docker-compose.yml
+   → Ou arrêter le processus sur le port 5000
+
+❌ "Docker daemon not running"
+   → Lancer Docker Desktop depuis le menu Démarrer
+   → Attendre le message "Docker is running"
+
+❌ Erreurs lors du build
+   → Nettoyer: docker system prune -a
+   → Relancer: docker-compose up -d
+
+
+FORMATS DE DONNÉES
+===================
+
+Cotes:
+  ✓ Fractionnaire: 77/1, 7/1, 5/2, 1/2
+  ✓ Décimale: 78.0, 8.0, 3.5
+
+Description:
+  ✓ Texte libre en français
+  ✓ Mentions: victoires, podiums, expérience
+  ✓ Mots-clés détectés automatiquement
+
+
+EXEMPLE DE COURSE
+==================
+
+Date: 2026-06-03
+Hippodrome: LAVAL
+Distance: 2850 m
+Type: ATTELE
+Conditions: GRAND NATIONAL DU TROT
+
+Chevaux:
+  1. JIBI DU FRUITIER
+     "Ce protégé de la famille Bruneau n'a pu convaincre..."
+     Cotes: 77/1
+
+  2. KEY OF LOVE
+     "Après avoir animé les débats... elle adore ce parcours..."
+     Cotes: 7/1
+
+  10. JOLIE STAR
+      "Invaincue en trois sorties pour sa première campagne..."
+      Cotes: 20/1
+
+
+ARCHITECTUR SYSTÈME
+===================
+Frontend:  HTML5 + CSS3 + JavaScript (Vanilla)
+Backend:   Flask (Python)
+ML:        TensorFlow / Keras (Deep Learning)
+Database:  SQLite3
+NLP:       NLTK (Sentiment Analysis)
+Deploy:    Docker + Docker Compose
+
+
+IMPORTANT ⚠️
+============
+1. Les prédictions sont indicatives
+2. Aucune garantie de profit
+3. Ne jamais parier plus que vous ne pouvez perdre
+4. À utiliser pour l'éducation et l'analyse seulement
+5. Les données restent locales (100% privé)
+
+
+DOCUMENTATION COMPLÈTE
+======================
+Voir: README.md (documentation technique)
+Voir: LAUNCH.md (guide détaillé)
+
+
+SUPPORT
+=======
+Erreur? Consultez les logs:
+docker-compose logs app
+
+Problème Docker?
+docker-compose down -v
+docker-compose up -d
+
+
+================================================================================
+✅ PRÊT À COMMENCER!
+
+Double-cliquez sur start.bat ou exécutez:
+  docker-compose up -d
+
+Puis visitez: http://localhost:5000
+================================================================================
