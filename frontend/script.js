@@ -2,6 +2,7 @@
 const API_BASE_URL = 'http://localhost:5000/api';
 let horsesData = [];
 let chart = null;
+let pdfChart = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
@@ -138,12 +139,17 @@ function drawPDFChart(predictions) {
         return 'rgba(220, 38, 38, 0.8)';
     });
     
-    if (window.pdfChart) {
-        window.pdfChart.destroy();
+    // Safely destroy previous chart
+    if (pdfChart && typeof pdfChart.destroy === 'function') {
+        try {
+            pdfChart.destroy();
+        } catch (e) {
+            console.warn('Error destroying chart:', e);
+        }
     }
     
     container.style.display = 'block';
-    window.pdfChart = new Chart(ctx, {
+    pdfChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
@@ -336,7 +342,13 @@ function drawPredictionsChart(predictions) {
         return 'rgba(220, 38, 38, 0.8)';
     });
     
-    if (chart) chart.destroy();
+    if (chart && typeof chart.destroy === 'function') {
+        try {
+            chart.destroy();
+        } catch (e) {
+            console.warn('Error destroying chart:', e);
+        }
+    }
     
     chart = new Chart(ctx, {
         type: 'bar',
