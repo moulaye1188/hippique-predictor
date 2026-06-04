@@ -3,346 +3,218 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prédiction Courses Hippiques - Deep Learning</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Hippique Predictor v2 - Analyse Complète</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>🐴 Prédicteur de Courses Hippiques</h1>
-            <p class="subtitle">Analyse intelligente basée sur Deep Learning</p>
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>🐴 Hippique Predictor v2</h1>
+                <p>Analyse Complète des Courses Hippiques</p>
+            </div>
         </header>
 
-        <main>
-            <!-- Status Bar -->
-            <div id="statusBar" class="status-bar hidden">
-                <span id="statusText"></span>
-            </div>
+        <!-- Status Bar -->
+        <div id="statusBar" class="status-bar hidden">
+            <span id="statusText"></span>
+        </div>
 
-            <!-- Tabs -->
-            <div class="tabs">
-                <button class="tab-button active" data-tab="pdf-race">
-                    📄 Charger Course (PDF)
-                </button>
-                <button class="tab-button" data-tab="prediction">
-                    📊 Prédiction (Manuel)
-                </button>
-                <button class="tab-button" data-tab="horses">
-                    🐴 Chevaux en BD
-                </button>
-                <button class="tab-button" data-tab="dashboard">
-                    📈 Dashboard
-                </button>
-                <button class="tab-button" data-tab="infos">
-                    ℹ️ Infos
-                </button>
-            </div>
+        <!-- Main Navigation -->
+        <nav class="tabs">
+            <button class="tab-button active" data-tab="pdf-upload">📤 Charger PDF</button>
+            <button class="tab-button" data-tab="race-analysis">📊 Analyse Course</button>
+            <button class="tab-button" data-tab="predictions">🎯 Prédictions</button>
+            <button class="tab-button" data-tab="horses-master">🏇 Chevaux Master</button>
+            <button class="tab-button" data-tab="dashboard">📈 Dashboard</button>
+        </nav>
 
-            <!-- TAB 0: Charger Course depuis PDF (NOUVEAU) -->
-            <div id="pdf-race" class="tab-content active">
-                <div class="form-container">
-                    <h2>📄 Charger une Course depuis PDF</h2>
-                    
-                    <div class="form-section">
-                        <h3>Étape 1: Sélectionner le PDF</h3>
-                        <p>Choisissez un PDF du Journal Hippique contenant les informations de course et chevaux.</p>
-                        
-                        <div class="form-group">
-                            <label for="pdfFile">Fichier PDF:</label>
-                            <input type="file" id="pdfFile" accept=".pdf" />
-                        </div>
-                        
-                        <div class="button-group">
-                            <button class="btn btn-primary" onclick="loadRaceFromPDF()">📥 Charger Course</button>
-                        </div>
-                    </div>
-
-                    <div id="pdfResults" class="results-container hidden">
-                        <h2>✅ Course Chargée</h2>
-                        
-                        <div class="info-box">
-                            <h3>📋 Informations de la Course</h3>
-                            <div id="raceInfo" class="race-info-grid">
-                                <!-- Populated by JavaScript -->
-                            </div>
-                        </div>
-
-                        <div class="info-box">
-                            <h3>🏆 Prédictions Générées</h3>
-                            <table class="results-table">
-                                <thead>
-                                    <tr>
-                                        <th>Rang</th>
-                                        <th>Numéro</th>
-                                        <th>Nom du Cheval</th>
-                                        <th>Probabilité (%)</th>
-                                        <th>Cotes Marché (%)</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="pdfPredictionsTable">
-                                    <!-- Populated by JavaScript -->
-                                </tbody>
-                            </table>
-
-                            <div class="chart-container" id="pdfChartContainer" style="display:none;">
-                                <canvas id="pdfChart"></canvas>
-                            </div>
-                        </div>
-
-                        <div class="form-actions">
-                            <button class="btn btn-secondary" onclick="resetPDFForm()">🔄 Charger Autre Course</button>
-                        </div>
-                    </div>
+        <!-- Tab Contents -->
+        
+        <!-- 1. PDF Upload Tab -->
+        <div id="pdf-upload" class="tab-content active">
+            <section class="card">
+                <h2>Charger une Course depuis PDF</h2>
+                <div class="upload-area">
+                    <input type="file" id="pdfFile" accept=".pdf" class="file-input">
+                    <label for="pdfFile" class="file-label">Cliquez ou glissez un PDF</label>
+                    <button class="btn btn-primary" onclick="loadRaceFromPDF()">Charger & Analyser</button>
                 </div>
-            </div>
+            </section>
 
-            <!-- TAB 1: Prediction (MANUEL - ancien) -->
-            <div id="prediction" class="tab-content">
-                <div class="form-container">
-                    <h2>Nouvelle Course (Saisie Manuelle)</h2>
-                    
-                    <div class="form-section">
-                        <h3>Informations de la Course</h3>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="raceDate">Date de la course</label>
-                                <input type="date" id="raceDate">
-                            </div>
-                            <div class="form-group">
-                                <label for="hippodrome">Hippodrome</label>
-                                <input type="text" id="hippodrome" placeholder="ex: LAVAL">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="distance">Distance (m)</label>
-                                <input type="number" id="distance" placeholder="2850">
-                            </div>
-                            <div class="form-group">
-                                <label for="raceType">Type de course</label>
-                                <input type="text" id="raceType" placeholder="ex: ATTELE">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="conditions">Conditions / Nom course</label>
-                            <input type="text" id="conditions" placeholder="ex: GRAND NATIONAL DU TROT">
-                        </div>
-                    </div>
+            <!-- Race Info Section -->
+            <section id="raceInfoSection" class="card hidden">
+                <h2>Informations de la Course</h2>
+                <div id="raceInfo" class="race-info-grid"></div>
+            </section>
 
-                    <div class="form-section">
-                        <h3>Chevaux en Lice</h3>
-                        <div class="horses-table-container">
-                            <table class="horses-table">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Nom du Cheval</th>
-                                        <th>Description / Analyse</th>
-                                        <th>Cotes (ex: 77/1)</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="horsesTableBody">
-                                    <!-- Populated by JavaScript -->
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="button-group">
-                            <button class="btn btn-secondary" onclick="addHorse()">➕ Ajouter Cheval</button>
-                            <button class="btn btn-secondary" onclick="removeLastHorse()">➖ Retirer Dernier</button>
-                        </div>
-                    </div>
+            <!-- Pronostics Section -->
+            <section id="pronosticsSection" class="card hidden">
+                <h2>Pronostics Externes (6 Sources)</h2>
+                <div id="pronosticsContainer" class="pronostics-grid"></div>
+            </section>
 
-                    <div class="form-actions">
-                        <button class="btn btn-primary btn-large" onclick="makePrediction()">🔮 Générer Pronostic</button>
-                    </div>
+            <!-- Classements Section -->
+            <section id="classementsSection" class="card hidden">
+                <h2>Classements & Rankings</h2>
+                <div id="classementsContainer" class="classements-grid"></div>
+            </section>
+
+            <!-- Horses Table Section -->
+            <section id="horsesTableSection" class="card hidden">
+                <h2>Détails des Chevaux</h2>
+                <div class="table-container">
+                    <table id="horsesTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>N°</th>
+                                <th>Nom</th>
+                                <th>Jockey</th>
+                                <th>Entraîneur</th>
+                                <th>Poids</th>
+                                <th>Perf</th>
+                                <th>Gains</th>
+                                <th>Cotes Paris</th>
+                                <th>Cotes Tiercé</th>
+                                <th>Prédiction</th>
+                            </tr>
+                        </thead>
+                        <tbody id="horsesTableBody"></tbody>
+                    </table>
                 </div>
+            </section>
+        </div>
 
-                <div id="resultsContainer" class="results-container hidden">
-                    <h2>📋 Résultats du Pronostic</h2>
-                    
-                    <div class="results-summary">
-                        <div class="summary-item">
-                            <h4>Favori</h4>
-                            <p id="winnerName" class="winner-name">-</p>
-                            <p id="winnerProb" class="winner-prob">-</p>
-                        </div>
-                        <div class="summary-item">
-                            <h4>Podium Probable</h4>
-                            <p id="podium">-</p>
-                        </div>
-                    </div>
+        <!-- 2. Race Analysis Tab -->
+        <div id="race-analysis" class="tab-content">
+            <section class="card">
+                <h2>Analyse Détaillée de la Course</h2>
+                <div id="raceAnalysisContent">
+                    <p>Chargez d'abord un PDF depuis l'onglet "Charger PDF"</p>
+                </div>
+            </section>
 
-                    <div class="chart-container">
-                        <canvas id="predictionsChart"></canvas>
-                    </div>
+            <!-- Charts -->
+            <div class="charts-grid">
+                <section class="card">
+                    <h3>Distribution des Probabilités</h3>
+                    <canvas id="probChart"></canvas>
+                </section>
+                <section class="card">
+                    <h3>Score Expert par Cheval</h3>
+                    <canvas id="expertChart"></canvas>
+                </section>
+                <section class="card">
+                    <h3>Consensus Pronostics</h3>
+                    <canvas id="consensusChart"></canvas>
+                </section>
+                <section class="card">
+                    <h3>Classements (Top 5 par catégorie)</h3>
+                    <div id="rankingsChart"></div>
+                </section>
+            </div>
+        </div>
 
-                    <table class="results-table">
+        <!-- 3. Predictions Tab -->
+        <div id="predictions" class="tab-content">
+            <section class="card">
+                <h2>🎯 Prédictions du Modèle V2</h2>
+                <div id="predictionsContent">
+                    <table class="data-table predictions-table">
                         <thead>
                             <tr>
                                 <th>Rang</th>
-                                <th>Numéro</th>
-                                <th>Nom du Cheval</th>
-                                <th>Cotes (Décimal)</th>
-                                <th>Proba. Marché (%)</th>
-                                <th>Prédiction (%)</th>
+                                <th>N°</th>
+                                <th>Cheval</th>
+                                <th>Prob Model</th>
+                                <th>Rang Pronostic</th>
+                                <th>Score Expert</th>
                                 <th>Confiance</th>
                             </tr>
                         </thead>
-                        <tbody id="resultsTableBody">
-                            <!-- Populated by JavaScript -->
-                        </tbody>
+                        <tbody id="predictionsBody"></tbody>
                     </table>
+                </div>
+            </section>
+        </div>
 
-                    <div class="form-actions">
-                        <button class="btn btn-secondary" onclick="downloadResults()">⬇️ Télécharger</button>
-                        <button class="btn btn-secondary" onclick="resetForm()">🔄 Nouvelle Analyse</button>
+        <!-- 4. Horses Master Tab -->
+        <div id="horses-master" class="tab-content">
+            <section class="card">
+                <h2>🏇 Base de Données Chevaux</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h4>Total Chevaux</h4>
+                        <p id="totalHorses">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Courses Suivies</h4>
+                        <p id="totalRaces">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Victoires</h4>
+                        <p id="totalWins">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Podiums</h4>
+                        <p id="totalPodiums">0</p>
                     </div>
                 </div>
-            </div>
 
-            <!-- TAB 2: Chevaux en BD (NOUVEAU) -->
-            <div id="horses" class="tab-content">
-                <h2>🐴 Chevaux en Base de Données</h2>
-                <div class="horses-container">
-                    <div class="button-group">
-                        <button class="btn btn-primary" onclick="loadHorsesMaster()">🔄 Rafraîchir Liste</button>
-                        <a href="horses_view.html" class="btn btn-secondary" target="_blank">📊 Vue Détaillée</a>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Nom</th>
+                                <th>Jockey</th>
+                                <th>Entraîneur</th>
+                                <th>Courses</th>
+                                <th>Victoires</th>
+                                <th>Podiums</th>
+                                <th>Pos Moy</th>
+                            </tr>
+                        </thead>
+                        <tbody id="horsesMasterBody"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- 5. Dashboard Tab -->
+        <div id="dashboard" class="tab-content">
+            <section class="card">
+                <h2>📈 Dashboard Général</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h4>Chevaux Uniques</h4>
+                        <p id="dashHorses">0</p>
                     </div>
-
-                    <div id="horsesStats" class="stats-grid">
-                        <div class="stat-item">
-                            <h4>Chevaux Uniques</h4>
-                            <p id="totalHorsesMaster">0</p>
-                        </div>
-                        <div class="stat-item">
-                            <h4>Courses Totales</h4>
-                            <p id="totalRacesTracked">0</p>
-                        </div>
-                        <div class="stat-item">
-                            <h4>Victoires Totales</h4>
-                            <p id="totalWins">0</p>
-                        </div>
-                        <div class="stat-item">
-                            <h4>Podiums</h4>
-                            <p id="totalPodiums">0</p>
-                        </div>
+                    <div class="stat-card">
+                        <h4>Courses Importées</h4>
+                        <p id="dashRaces">0</p>
                     </div>
-
-                    <div class="horses-table-container">
-                        <h3>Statistiques Cumulatives</h3>
-                        <table class="results-table">
-                            <thead>
-                                <tr>
-                                    <th>Cheval</th>
-                                    <th>Jockey</th>
-                                    <th>Entraîneur</th>
-                                    <th>Courses</th>
-                                    <th>Victoires</th>
-                                    <th>Podiums</th>
-                                    <th>Pos. Moy.</th>
-                                </tr>
-                            </thead>
-                            <tbody id="horsesMasterBody">
-                                <tr><td colspan="7" style="text-align:center;">Aucun cheval en BD</td></tr>
-                            </tbody>
-                        </table>
+                    <div class="stat-card">
+                        <h4>Qualité Données</h4>
+                        <p id="dataQuality">Faible</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Statut Modèle</h4>
+                        <p id="modelStatus">Prêt</p>
                     </div>
                 </div>
-            </div>
 
-            <!-- TAB 3: Dashboard -->
-            <div id="dashboard" class="tab-content">
-                <h2>📈 Dashboard Performance</h2>
-                <div class="dashboard-container">
-                    <div class="button-group">
-                        <button class="btn btn-primary" onclick="loadDashboard()">🔄 Rafraîchir Dashboard</button>
-                    </div>
-
-                    <div id="dashboardMetrics" class="dashboard-metrics hidden">
-                        <div class="metrics-grid">
-                            <div class="metric-card">
-                                <h4>Chevaux en BD</h4>
-                                <p id="dashHorses" class="metric-value">0</p>
-                            </div>
-                            <div class="metric-card">
-                                <h4>Courses Tracées</h4>
-                                <p id="dashRaces" class="metric-value">0</p>
-                            </div>
-                            <div class="metric-card">
-                                <h4>Victoires Tracées</h4>
-                                <p id="dashWins" class="metric-value">0</p>
-                            </div>
-                            <div class="metric-card">
-                                <h4>Données d'Apprentissage</h4>
-                                <p id="dashLearning" class="metric-value">0%</p>
-                            </div>
-                        </div>
-
-                        <div class="info-box">
-                            <h3>📚 État d'Apprentissage du Modèle</h3>
-                            <div class="learning-status">
-                                <p><strong>Chevaux en Base:</strong> <span id="learningHorses">0</span> uniques</p>
-                                <p><strong>Courses Enregistrées:</strong> <span id="learningRaces">0</span> courses</p>
-                                <p><strong>Résultats Connus:</strong> <span id="learningResults">0</span> courses avec arrivée</p>
-                                <p><strong>Qualité Données:</strong> <span id="dataQuality">Faible - Importer plus de PDFs</span></p>
-                            </div>
-                        </div>
-
-                        <div class="info-box">
-                            <h4>💡 Recommandations</h4>
-                            <ul id="recommendations" class="recommendations">
-                                <li>Importer au moins 50 courses pour un apprentissage significatif</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TAB 4: Infos -->
-            <div id="infos" class="tab-content">
-                <h2>À Propos</h2>
-                <div class="info-section">
-                    <h3>🤖 Système de Prédiction Intelligent</h3>
-                    <p>
-                        Ce système utilise un <strong>réseau de neurones profond (Deep Learning)</strong> 
-                        entraîné sur l'historique cumulatif des chevaux pour prédire les résultats des courses hippiques.
-                    </p>
-                    
-                    <h4>🔄 Flux de Données</h4>
-                    <ul>
-                        <li><strong>Import PDF:</strong> Charger une course depuis le Journal Hippique</li>
-                        <li><strong>Extraction Auto:</strong> Tous les détails extraits automatiquement</li>
-                        <li><strong>Cumul Historique:</strong> Chevaux et résultats accumulés en DB</li>
-                        <li><strong>Apprentissage:</strong> Modèle apprend des données réelles</li>
-                        <li><strong>Prédictions:</strong> Générées basées sur l'historique du cheval</li>
-                    </ul>
-
-                    <h4>📊 Données Utilisées</h4>
-                    <ul>
-                        <li><strong>Historique Cheval:</strong> Nombre de courses, victoires, podiums, position moyenne</li>
-                        <li><strong>Cotes:</strong> Probabilités implicites du marché</li>
-                        <li><strong>Caractéristiques:</strong> Âge, poids, jockey, entraîneur</li>
-                        <li><strong>Résultats Réels:</strong> Arrivées précédentes pour apprentissage</li>
-                    </ul>
-
-                    <h4>⚠️ Avertissements</h4>
-                    <ul>
-                        <li>Les prédictions ne sont garanties en aucun cas</li>
-                        <li>À utiliser à titre informatif et éducatif uniquement</li>
-                        <li>Ne jamais parier plus que vous ne pouvez vous permettre de perdre</li>
-                        <li>Qualité des prédictions augmente avec le nombre de courses importées</li>
+                <div class="recommendations-section">
+                    <h3>Recommandations</h3>
+                    <ul id="recommendations">
+                        <li>Charger des PDFs pour enrichir la base de données</li>
                     </ul>
                 </div>
-            </div>
-        </main>
-
-        <footer>
-            <p>🔐 Données traitées localement | 🧠 Deep Learning | 📊 Apprentissage Cumulatif</p>
-        </footer>
+            </section>
+        </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="script_v2.js"></script>
 </body>
 </html>
