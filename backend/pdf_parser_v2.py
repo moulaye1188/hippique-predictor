@@ -1,8 +1,23 @@
 """PDF Parser using pdfplumber for table extraction"""
 import re
 import pandas as pd
+import numpy as np
 import PyPDF2
 from typing import Dict, List, Tuple, Optional
+
+def convert_to_native_types(obj):
+    """Convert NumPy types to native Python types for JSON serialization"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, dict):
+        return {k: convert_to_native_types(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_to_native_types(item) for item in obj]
+    elif isinstance(obj, pd.DataFrame):
+        return obj.astype(object).where(pd.notna(obj), None).to_dict(orient='records')
+    return obj
 
 def parse_pdf_with_pdfplumber(file_path: str) -> Tuple[Dict, pd.DataFrame]:
     """
@@ -36,6 +51,10 @@ def parse_pdf_with_pdfplumber(file_path: str) -> Tuple[Dict, pd.DataFrame]:
         print(f"Error parsing PDF: {e}")
     
     df = pd.DataFrame(horses)
+    
+    # Convert to native types for JSON serialization
+    race_info = convert_to_native_types(race_info)
+    
     return race_info, df
 
 
@@ -146,7 +165,7 @@ def _parse_horses_from_table(table: List[List]) -> List[Dict]:
                 continue
             
             horse = {
-                'horse_number': horse_num,
+                'horse_number': int(horse_num),  # Ensure native int
                 'horse_name': name_data[i].strip() if i < len(name_data) else "",
             }
             

@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
+from pdf_parser_v2 import convert_to_native_types
 from flask_cors import CORS
 import numpy as np
 import os
@@ -484,10 +485,10 @@ def load_race_from_pdf():
         return jsonify({
             'success': True,
             'race_id': race_id,
-            'race_info': race_info,
-            'horses_imported': saved_horses_count,
-            'new_horses': new_horses_count,
-            'predictions': predictions_list[:10],  # Top 10 predictions
+            'race_info': convert_to_native_types(race_info),
+            'horses_imported': int(saved_horses_count),
+            'new_horses': int(new_horses_count),
+            'predictions': convert_to_native_types(predictions_list[:10]),  # Top 10 predictions
             'message': f'Race loaded! {saved_horses_count} horses imported, {new_horses_count} new to system.'
         }), 200
     
