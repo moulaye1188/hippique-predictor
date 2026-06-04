@@ -34,5 +34,5 @@ EXPOSE 5000
 # Set working directory to backend
 WORKDIR /app/backend
 
-# Run the Flask app via WSGI
-CMD ["python", "wsgi.py"]
+# Run the Flask app via WSGI (with dependency check)
+CMD ["python", "wsgi_with_deps.py"]
