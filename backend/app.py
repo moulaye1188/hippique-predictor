@@ -28,17 +28,17 @@ except:
 @app.route('/')
 def index():
     """Serve new frontend"""
-    return send_from_directory('/app/frontend', 'index_v2.html')
+    return send_from_directory('/app/frontend', 'index.html')
 
 
 @app.route('/styles.css')
 def styles():
-    return send_from_directory('/app/frontend', 'styles_v2.css')
+    return send_from_directory('/app/frontend', 'style.css')
 
 
 @app.route('/script.js')
 def script():
-    return send_from_directory('/app/frontend', 'script_v2.js')
+    return send_from_directory('/app/frontend', 'script.js')
 
 
 # API Routes
