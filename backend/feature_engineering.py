@@ -17,7 +17,7 @@ class RaceFeatureEngineer:
         """Create feature matrix from all enriched data"""
         df = horses_df.copy()
         
-        # Ensure all required columns exist
+        # Ensure all required columns exist (ONLY base columns)
         default_columns = {
             'perf': '0',
             'odds_paris_turf': '1/1',
@@ -28,9 +28,7 @@ class RaceFeatureEngineer:
             'gains_historical': 0,
             'trainer': 'Unknown',
             'jockey': 'Unknown',
-            'expert_score': 0.5,
-            'conditions_score': 0.5,
-            'distance_score': 0.5
+            'expert_score': 0.5
         }
         
         for col, default in default_columns.items():
@@ -60,7 +58,7 @@ class RaceFeatureEngineer:
         df['corde_score'] = df['corde'].apply(lambda x: 1 / (1 + abs(float(x) - 8)) if pd.notna(x) else 0.5)
         
         # 5b. CONDITIONS SCORE (NOUVEAU) - Corde + Distance
-        # Optimales: corde 4-6, distance 2000-2400m
+        # Créé APRÈS corde_score pour éviter NaN
         distance = float(race_data.get('distance', 2100))
         df['distance_score'] = 1 - abs(distance - 2100) / 2100  # Optimal à 2100m
         df['conditions_score'] = (df['corde_score'] * 0.6 + df['distance_score'] * 0.4)
@@ -68,46 +66,51 @@ class RaceFeatureEngineer:
         # 6. Gains
         df['gains_log'] = df['gains_historical'].apply(lambda x: np.log1p(float(x)) if pd.notna(x) and float(x) > 0 else 0)
         
-        # 7. Classement
+        # 7. Classement - FALLBACK si vide
         df['classement_score'] = df['horse_number'].apply(lambda x: self._get_classement_score(x, classements))
+        # Si parser ne retourne rien, utiliser perf_score comme proxy
+        df['classement_score'] = df['classement_score'].fillna(value=0.0)
+        df.loc[df['classement_score'] == 0, 'classement_score'] = df.loc[df['classement_score'] == 0, 'perf_score'] / 10  # Normalize perf as fallback
         
-        # 8. Pronostic
+        # 8. Pronostic - FALLBACK si vide
         df['pronostic_score'] = df['horse_number'].apply(lambda x: self._get_pronostic_score(x, pronostics))
+        df['pronostic_score'] = df['pronostic_score'].fillna(value=0.0)
+        # Si vide, base sur odds (le marché sait mieux)
+        df.loc[df['pronostic_score'] == 0, 'pronostic_score'] = df.loc[df['pronostic_score'] == 0, 'odds_consensus']
         
-        # 9. Trainer/Jockey
+        # 9. Trainer/Jockey - FALLBACK si vide
         df['trainer_ranking'] = df['trainer'].apply(lambda x: self._get_trainer_ranking(x, best_week))
+        df['trainer_ranking'] = df['trainer_ranking'].fillna(value=0.5)  # Default neutre
+        
         df['jockey_ranking'] = df['jockey'].apply(lambda x: self._get_jockey_ranking(x, best_week))
+        df['jockey_ranking'] = df['jockey_ranking'].fillna(value=0.5)  # Default neutre
         
-        # 10. Expert score - POIDS RECALIBRÉS
-        # Ancien modèle: trop confiant, sur-pondère pronostics
-        # Nouveau: fait confiance au marché (odds) en priorité
+        # 10. Expert score - POIDS RECALIBRÉS - VERSION ROBUSTE
+        # Nouvelle approche: utilise principalement les ODDS + perf + conditions
+        # Car le parser peut ne pas retourner classements/pronostics
         
-        classement_weight = 0.20    # Réduit: 0.25 → 0.20
-        pronostic_weight = 0.10     # Réduit: 0.25 → 0.10 (consensus pas fiable)
-        trainer_weight = 0.25       # Augmenté: 0.20 → 0.25 (trainer = crucial)
-        jockey_weight = 0.15        # Réduit: 0.20 → 0.15 (jockey < trainer)
-        odds_weight = 0.30          # MAJORÉ: 0.10 → 0.30 (marché a raison!)
-        conditions_weight = 0.05    # NOUVEAU: corde + distance
+        # Simplification: poids plus pragmatiques basés sur fiabilité
+        perf_weight = 0.25       # Performance historique fiable
+        odds_weight = 0.50       # Les odds reflètent le marché = PRIORITÉ!
+        conditions_weight = 0.15 # Conditions de course
+        trainer_weight = 0.10    # Info trainer si disponible
         
         raw_score = (
-            df['classement_score'] * classement_weight +
-            df['pronostic_score'] * pronostic_weight +
-            df['trainer_ranking'] * trainer_weight +
-            df['jockey_ranking'] * jockey_weight +
-            df['odds_consensus'] * odds_weight +
-            df['conditions_score'] * conditions_weight
+            df['perf_score'] / 10 * perf_weight +           # Normalize perf (0-10 → 0-1)
+            df['odds_consensus'] * odds_weight +             # Les odds sont fiables
+            df['conditions_score'] * conditions_weight +      # Corde + distance
+            df['trainer_ranking'] * trainer_weight           # Entraîneur de forme
         )
         
-        # Calibration: évite surconfiance (92%) avec fonction tanh
-        # tanh(x * 0.8) comprend les probabilités: ne dépasse jamais 0.8
-        df['expert_score'] = np.tanh(raw_score * 0.7)
+        # Calibration: simple clip (0-1) pour probabilités réalistes
+        df['expert_score'] = np.clip(raw_score, 0.01, 0.99)  # Entre 1% et 99%
         
-        # Bonus: ajouter un facteur "contre-signal" pour outsiders
-        # Si odds_consensus bas mais autres scores hauts = possible surprise
-        df['outsider_factor'] = (
-            (df['classement_score'] + df['pronostic_score']) / 2 - 
-            df['odds_consensus']
-        ) * 0.15  # Ajuste légèrement si signal contraire
+        # DEBUG: Ajouter un log des scores
+        df['debug_info'] = (
+            "perf=" + (df['perf_score'] / 10 * perf_weight).round(2).astype(str) + 
+            " odds=" + (df['odds_consensus'] * odds_weight).round(2).astype(str) +
+            " cond=" + (df['conditions_score'] * conditions_weight).round(2).astype(str)
+        )
         
         return df
     

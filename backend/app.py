@@ -133,10 +133,15 @@ def load_race_from_pdf_v2():
                 )
                 predictions_list = predictions_df.to_dict(orient='records')
             else:
-                # Fallback: use expert_score
-                horses_df['predicted_probability'] = horses_df.get('expert_score', 0)
-                horses_df['predicted_rank'] = horses_df['predicted_probability'].rank(ascending=False).astype(int)
-                predictions_list = horses_df.sort_values('predicted_rank').to_dict(orient='records')
+                # Fallback: Engineer features and use expert_score
+                from feature_engineering import RaceFeatureEngineer
+                feature_engineer = RaceFeatureEngineer()
+                features_df = feature_engineer.engineer_race_features(
+                    race_info, horses_df, classements, pronostics, best_week
+                )
+                features_df['predicted_probability'] = features_df['expert_score']
+                features_df['predicted_rank'] = features_df['predicted_probability'].rank(ascending=False).astype(int)
+                predictions_list = features_df.sort_values('predicted_rank').to_dict(orient='records')
             
             response_data = {
                 'success': True,
