@@ -1,21 +1,27 @@
 """Updated Flask routes - Integrate new frontend + Model V2"""
 import sys
-sys.path.insert(0, '/app/backend')
+import os
+from pathlib import Path
+
+# Add backend to path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import tempfile
-import os
 import json
 import numpy as np
 import pandas as pd
+
+# Import config
+from config import STATIC_FOLDER, DB_PATH, MODEL_PATH, SCALER_PATH
 
 from pdf_parser_smart import parse_pdf_smart
 from database_schema_v2 import save_race_enriched, save_horse_enriched, save_race_pronostics, save_race_classements
 from database import get_or_create_horse_master, add_horse_race, get_all_horses_master
 from model_v2 import UpgradedHippiqueModel
 
-app = Flask(__name__, static_folder='/app/frontend', static_url_path='')
+app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path='')
 CORS(app)
 
 # Clean JSON encoder - handles NaN and NaT
@@ -40,25 +46,29 @@ model = UpgradedHippiqueModel()
 try:
     model.load()
     print("✓ Model V2 loaded successfully")
-except:
-    print("⚠ Model V2 not found - predictions will use expert scores only")
+except FileNotFoundError as e:
+    print(f"⚠ Model V2 not found ({e})")
+    print("Predictions will use expert scores only")
+except Exception as e:
+    print(f"⚠ Error loading model: {e}")
+    print("Predictions will use expert scores only")
 
 
 # Serve new frontend
 @app.route('/')
 def index():
     """Serve new frontend"""
-    return send_from_directory('/app/frontend', 'index.html')
+    return send_from_directory(STATIC_FOLDER, 'index.html')
 
 
 @app.route('/styles.css')
 def styles():
-    return send_from_directory('/app/frontend', 'style.css')
+    return send_from_directory(STATIC_FOLDER, 'style.css')
 
 
 @app.route('/script.js')
 def script():
-    return send_from_directory('/app/frontend', 'script.js')
+    return send_from_directory(STATIC_FOLDER, 'script.js')
 
 
 # API Routes
@@ -143,8 +153,11 @@ def load_race_from_pdf_v2():
         
         finally:
             # Clean up temp file
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except Exception as e:
+                print(f"Warning: Failed to clean up temp file: {e}")
     
     except Exception as e:
         import traceback
@@ -211,8 +224,8 @@ if __name__ == '__main__':
         from database_schema_v2 import migrate_to_schema_v2
         init_database()
         migrate_to_schema_v2()
-    except:
-        pass
+    except Exception as e:
+        print(f"Warning: Database init issue: {e}")
     
     print("\n" + "="*60)
     print("🚀 Hippique Predictor v2 - Starting Server")

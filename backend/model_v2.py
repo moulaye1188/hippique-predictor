@@ -9,10 +9,8 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 import joblib
 import os
 
+from config import MODEL_PATH, SCALER_PATH
 from feature_engineering import RaceFeatureEngineer
-
-MODEL_PATH = "/app/models/hippique_model_v2.pkl"
-SCALER_PATH = "/app/models/scaler_v2.pkl"
 
 
 class UpgradedHippiqueModel:
