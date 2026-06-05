@@ -40,7 +40,7 @@ class UpgradedHippiqueModel:
                     race.get('best_week', {})
                 )
                 
-                X = horses_df[self.feature_columns].fillna(0.5).values
+                X = horses_df[self.feature_columns].fillna(value=0.5).values
                 
                 # Labels: use result_position if available, else use expert_score as proxy
                 if 'result_position' in horses_df.columns:
@@ -131,7 +131,7 @@ class UpgradedHippiqueModel:
         )
         
         # Get features
-        X = features_df[self.feature_columns].fillna(0.5).values
+        X = features_df[self.feature_columns].fillna(value=0.5).values
         X_scaled = self.scaler.transform(X)
         
         # Predict probabilities

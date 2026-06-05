@@ -246,7 +246,7 @@ def prepare_features_for_training(features_df, target_column='result_position') 
     if target_column in numeric_cols:
         numeric_cols.remove(target_column)
     
-    X = features_df[numeric_cols].fillna(0).values
+    X = features_df[numeric_cols].fillna(value=0).values
     
     # Create target: 1 if position is 1 (winner), 0 otherwise
     if target_column in features_df.columns:

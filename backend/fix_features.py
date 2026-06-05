@@ -40,7 +40,7 @@ class RaceFeatureEngineer:
         
         # Fill NaN values
         for col, default in default_columns.items():
-            df[col] = df[col].fillna(default)
+            df[col] = df[col].fillna(value=default)
         
         # 1. Parse and encode perf
         df['perf_score'] = df['perf'].apply(self._parse_perf)

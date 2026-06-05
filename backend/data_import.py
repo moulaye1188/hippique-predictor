@@ -146,9 +146,7 @@ class DataImporter:
         # Fill missing numeric values
         for col in numeric_cols:
             if col in df.columns:
-                df[col] = df[col].fillna(0)
-        
-        return df
+                    df[col] = df[col].fillna(value=0)
     
     @staticmethod
     def extract_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -261,7 +259,7 @@ class OddsFeatureExtractor:
         if 'odds_previous' in df_features.columns:
             prev_prob = df_features['odds_previous'].apply(OddsFeatureExtractor.convert_odds_to_probability)
             curr_prob = df_features['odds_probability']
-            df_features['odds_movement'] = (curr_prob - prev_prob).fillna(0)
+            df_features['odds_movement'] = (curr_prob - prev_prob).fillna(value=0)
         
         return df_features
 
