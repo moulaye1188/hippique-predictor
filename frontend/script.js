@@ -384,19 +384,57 @@ async function loadDashboard() {
         if (!response.ok) throw new Error('Erreur API');
         const data = await response.json();
         
+        // Update all stats
         document.getElementById('dashHorses').textContent = data.total_unique_horses || 0;
-        document.getElementById('dashRaces').textContent = data.total_races_tracked || 0;
-        document.getElementById('dataQuality').textContent = getDataQuality(data.total_races_tracked);
+        document.getElementById('dashRaces').textContent = data.total_races_imported || 0;
+        document.getElementById('racesWithResults').textContent = data.races_with_results || 0;
+        document.getElementById('dataQuality').textContent = data.data_quality || 'Faible';
+        document.getElementById('modelStatus').textContent = data.model_status || 'Prêt';
+        document.getElementById('modelLearningStatus').textContent = data.model_learning_status || '❌ Pas encore';
         
+        // Generate recommendations
         const recs = [];
-        if (data.total_races_tracked < 20) recs.push('Importer au moins 20 courses');
-        if (data.total_races_tracked < 50) recs.push('Continuer les imports pour améliorer le modèle');
-        if (data.total_races_tracked < 100) recs.push('Atteindre 100 courses pour fiabilité');
-        if (recs.length === 0) recs.push('Modèle bien alimenté! Utiliser pour prédictions');
+        
+        // Race imports
+        if (data.total_races_imported < 5) {
+            recs.push('⚠️ Importer au moins 5 courses PDFs');
+        } else if (data.total_races_imported < 20) {
+            recs.push('📈 Continuer imports (' + data.total_races_imported + '/20 courses)');
+        } else if (data.total_races_imported < 100) {
+            recs.push('📈 Objectif: 100 courses (actuellement ' + data.total_races_imported + ')');
+        }
+        
+        // Result tracking
+        if (data.races_with_results < 5) {
+            recs.push('📊 Attendre les résultats des courses importées');
+        } else {
+            recs.push('✅ Modèle apprend! ' + data.races_with_results + ' courses avec résultats');
+        }
+        
+        // Data quality
+        if (data.data_quality === 'Faible') {
+            recs.push('⚠️ Qualité faible: importer plus de PDFs');
+        } else if (data.data_quality === 'Acceptable') {
+            recs.push('🟡 Qualité acceptable: continuer les imports');
+        } else if (data.data_quality === 'Bonne') {
+            recs.push('🟢 Qualité bonne: suffisant pour prédictions');
+        } else {
+            recs.push('🟢 Excellente qualité: prêt pour production');
+        }
+        
+        // Model learning
+        if (data.model_can_learn) {
+            recs.push('🧠 Apprentissage du modèle: ACTIF');
+        } else {
+            recs.push('⏳ Attendre plus de résultats pour apprentissage');
+        }
+        
+        if (recs.length === 0) recs.push('✅ Système complètement configuré!');
         
         document.getElementById('recommendations').innerHTML = recs.map(r => `<li>${r}</li>`).join('');
     } catch (error) {
         console.error('Error:', error);
+        document.getElementById('recommendations').innerHTML = '<li>Erreur chargement dashboard</li>';
     }
 }
 

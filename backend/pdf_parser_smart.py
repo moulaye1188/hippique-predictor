@@ -19,27 +19,30 @@ def convert_to_native_types(obj):
     return obj
 
 
-def parse_pdf_smart(file_path: str) -> Tuple[Dict, pd.DataFrame, Dict, Dict, Dict]:
+def parse_pdf_smart(file_path: str) -> Tuple[Dict, pd.DataFrame, Dict, Dict, Dict, Dict]:
     """
     SMART PDF parsing using structured table extraction
+    NOW RETURNS: race_info, horses_df, pronostics, classements, best_week, arrivals
     """
     try:
         import pdfplumber
     except ImportError:
-        return {}, pd.DataFrame(), {}, {}, {}
+        return {}, pd.DataFrame(), {}, {}, {}, {}
     
     race_info = {}
     horses_list = []
     pronostics = {}
     classements = {}
     best_week = {}
+    arrivals = {}
     
     try:
         with pdfplumber.open(file_path) as pdf:
-            # Extract all text for metadata
+            # Optimization: Extract text only from first 3 pages (most PDF data is here)
             full_text = ""
-            for page in pdf.pages:
-                full_text += page.extract_text() + "\n"
+            pages_to_extract = min(3, len(pdf.pages))  # Limit to first 3 pages
+            for i in range(pages_to_extract):
+                full_text += pdf.pages[i].extract_text() + "\n"
             
             # Parse race info from text
             race_info = _parse_race_header(full_text)
@@ -57,6 +60,9 @@ def parse_pdf_smart(file_path: str) -> Tuple[Dict, pd.DataFrame, Dict, Dict, Dic
             pronostics = _parse_pronostics_sources(full_text)
             classements = _parse_classements_section(full_text)
             best_week = _parse_best_of_week(full_text)
+            
+            # NEW: Parse race arrivals (results) from PDF
+            arrivals = _parse_race_arrivals(full_text)
     
     except Exception as e:
         print(f"Error parsing PDF: {e}")
@@ -71,8 +77,46 @@ def parse_pdf_smart(file_path: str) -> Tuple[Dict, pd.DataFrame, Dict, Dict, Dic
     pronostics = convert_to_native_types(pronostics)
     classements = convert_to_native_types(classements)
     best_week = convert_to_native_types(best_week)
+    arrivals = convert_to_native_types(arrivals)
     
-    return race_info, df, pronostics, classements, best_week
+    return race_info, df, pronostics, classements, best_week, arrivals
+
+
+def _parse_race_arrivals(text: str) -> Dict:
+    """
+    Extract race arrivals (results) from PDF text
+    Looks for patterns like "Arrivée : 7 - 11 - 2 - 15"
+    """
+    arrivals = {}
+    
+    # Pattern 1: Standard French format "ARRIVÉE : 7 - 11 - 2 - 15"
+    patterns = [
+        r'ARRIVÉE\s*:\s*(\d+)\s*[-–]\s*(\d+)\s*[-–]\s*(\d+)\s*[-–]\s*(\d+)',
+        r'Arrivée\s*:\s*(\d+)\s*[-–]\s*(\d+)\s*[-–]\s*(\d+)\s*[-–]\s*(\d+)',
+        r'ARRIVÉE\s+(\d+)\s*[-–]\s*(\d+)\s*[-–]\s*(\d+)\s*[-–]\s*(\d+)',
+        r'Arrivée\s+(\d+)\s*[-–]\s*(\d+)\s*[-–]\s*(\d+)\s*[-–]\s*(\d+)',
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            horse_1 = int(match.group(1))
+            horse_2 = int(match.group(2))
+            horse_3 = int(match.group(3))
+            horse_4 = int(match.group(4))
+            
+            arrivals['1st'] = horse_1
+            arrivals['2nd'] = horse_2
+            arrivals['3rd'] = horse_3
+            arrivals['4th'] = horse_4
+            arrivals['quartet'] = [horse_1, horse_2, horse_3, horse_4]
+            
+            print(f"✅ Race arrivals found: {arrivals['quartet']}")
+            return arrivals
+    
+    # If no arrivals found
+    print("⚠️  No race arrivals found in PDF")
+    return {}
 
 
 def _parse_horses_from_table(table: List[List]) -> List[Dict]:
@@ -250,22 +294,24 @@ def _parse_race_header(text: str) -> Dict:
 
 
 def _parse_pronostics_sources(text: str) -> Dict[str, List[int]]:
-    """Parse external pronostics"""
+    """Parse external pronostics - fixed for PDF format"""
     pronostics = {}
     
     sources = [
-        ('TURF-FR.COM', r'TURF-FR\.COM\s*([0-9\s\-–]+?)(?=\n[A-Z]|\Z)'),
-        ('L\'ALSACE', r"L'ALSACE\s*([0-9\s\-–]+?)(?=\n[A-Z]|\Z)"),
-        ('VOIX DU NORD', r'VOIX DU NORD.*?\(EDITION\s+\d+\)\s*([0-9\s\-–]+?)(?=\n[A-Z]|\Z)'),
-        ('TURFOMANIA', r'TURFOMANIA\s*([0-9\s\-–]+?)(?=\n[A-Z]|\Z)'),
-        ('EQUIDIA', r'EQUIDIA\s*([0-9\s\-–]+?)(?=\n[A-Z]|\Z)'),
-        ('LE PARISIEN', r'LE PARISIEN\s*([0-9\s\-–]+?)(?=\n[A-Z]|\Z)')
+        ('TURF-FR.COM', r'TURF-FR\.COM\s+([0-9\s\-–]+)(?:\n|$)'),
+        ('L\'ALSACE', r"L'ALSACE\s+([0-9\s\-–]+)(?:\n|$)"),
+        ('VOIX DU NORD', r'VOIX DU NORD.*?(?:\n\s*)?([0-9\s\-–]+)(?:\n|$)'),
+        ('TURFOMANIA', r'TURFOMANIA\s+([0-9\s\-–]+)(?:\n|$)'),
+        ('EQUIDIA', r'EQUIDIA\s+([0-9\s\-–]+)(?:\n|$)'),
+        ('LE PARISIEN', r'LE PARISIEN\s+([0-9\s\-–]+)(?:\n|$)')
     ]
     
     for source_name, pattern in sources:
-        match = re.search(pattern, text, re.IGNORECASE)
+        match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
         if match:
-            numbers = [int(n) for n in re.findall(r'\d+', match.group(1))]
+            # Extract numbers from matched group (handles dashes and spaces)
+            numbers_str = match.group(1)
+            numbers = [int(n) for n in re.findall(r'\d+', numbers_str)]
             if numbers:
                 pronostics[source_name] = numbers
     
@@ -273,21 +319,35 @@ def _parse_pronostics_sources(text: str) -> Dict[str, List[int]]:
 
 
 def _parse_classements_section(text: str) -> Dict[str, List[int]]:
-    """Parse rankings"""
+    """Parse rankings from APTITUDES section"""
     classements = {}
     
+    # Key rankings under APTITUDES section
     rankings = [
-        ('FORME', r'FORME\s*:\s*([0-9\s\-–]+?)(?=\n[A-Z]|\Z)'),
-        ('CLASSE', r'CLASSE\s*:\s*([0-9\s\-–]+?)(?=\n[A-Z]|\Z)'),
-        ('PROGRES', r'PROGR[EÉ]S\s*:\s*([0-9\s\-–]+?)(?=\n[A-Z]|\Z)'),
-        ('REGULARITE', r'R[EÉ]GULARIT[EÉ]\s*:\s*([0-9\s\-–]+?)(?=\n[A-Z]|\Z)'),
-        ('FAVORIS', r'FAVORIS\s*:\s*([0-9\s\-–]+?)(?=\n[A-Z]|\Z)'),
-        ('SECONDES_CHANCES', r'SECONDES\s+CHANCES\s+([0-9\s\-–]+?)(?=\n[A-Z]|\Z)'),
-        ('OUTSIDERS', r'(?:^|\n)OUTSIDERS\s+([0-9\s\-–]+?)(?=\n[A-Z]|\Z)'),
-        ('GROS_OUTSIDERS', r'GROS\s+OUTSIDERS\s+([0-9\s\-–]+?)(?=\n[A-Z]|\Z)'),
+        ('FORME', r'FORME\s*[:–]\s*([0-9\s\-–]+)'),
+        ('CLASSE', r'CLASSE\s*[:–]\s*([0-9\s\-–]+)'),
+        ('PROGRES', r'PROGR[EÉ]S\s*[:–]\s*([0-9\s\-–]+)'),
+        ('REGULARITE', r'R[EÉ]GULARIT[EÉ]\s*[:–]\s*([0-9\s\-–]+)'),
+        ('FAVORIS', r'FAVORIS\s*[:–]\s*([0-9\s\-–]+)'),
     ]
     
     for name, pattern in rankings:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            # Extract all numbers from the matched group
+            numbers_str = match.group(1)
+            numbers = [int(n) for n in re.findall(r'\d+', numbers_str)]
+            if numbers:
+                classements[name] = numbers
+    
+    # Also capture secondary rankings
+    secondary = [
+        ('SECONDES_CHANCES', r'SECONDES\s+CHANCES\s+([0-9\s\-–]+?)(?:\n|$)'),
+        ('OUTSIDERS', r'(?<!\w)OUTSIDERS\s+([0-9\s\-–]+?)(?:\n|$)'),
+        ('GROS_OUTSIDERS', r'GROS\s+OUTSIDERS\s+([0-9\s\-–]+?)(?:\n|$)'),
+    ]
+    
+    for name, pattern in secondary:
         match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
         if match:
             numbers = [int(n) for n in re.findall(r'\d+', match.group(1))]
@@ -298,19 +358,29 @@ def _parse_classements_section(text: str) -> Dict[str, List[int]]:
 
 
 def _parse_best_of_week(text: str) -> Dict:
-    """Parse best trainers/jockeys"""
+    """Parse best trainers/jockeys in form"""
     best_week = {}
     
-    # Extract trainers in form
-    trainers_form = re.findall(r'ENTRAÎN[EU]RS EN FORME\s*:\s*([A-Z\.\s&–\-\n]+?)(?=JOCKEYS|$)', text, re.IGNORECASE)
-    if trainers_form:
-        names = [n.strip() for n in re.split(r'[–\-]', trainers_form[0]) if n.strip() and len(n.strip()) > 2]
-        best_week['trainers_in_form'] = names
+    # Extract trainers in form (after "ENTRAINEURS EN FORME :")
+    trainers_pattern = r'ENTRAÎN[EU]RS\s+EN\s+FORME\s*:\s*([A-Z\.\s&–\-\n]+?)(?=JOCKEYS|$)'
+    trainers_match = re.search(trainers_pattern, text, re.IGNORECASE | re.MULTILINE)
+    if trainers_match:
+        text_block = trainers_match.group(1)
+        # Split by dashes and filter valid names
+        names = [n.strip() for n in re.split(r'[–\-]', text_block)]
+        names = [n for n in names if n and len(n) > 2 and re.search(r'[A-Z]', n)]
+        if names:
+            best_week['trainers_in_form'] = names
     
-    # Extract jockeys in form
-    jockeys_form = re.findall(r'JOCKEYS EN FORME\s*:\s*([A-Z\.\s–\-\n]+?)(?=FAVORIS|$)', text, re.IGNORECASE)
-    if jockeys_form:
-        names = [n.strip() for n in re.split(r'[–\-]', jockeys_form[0]) if n.strip() and len(n.strip()) > 2]
-        best_week['jockeys_in_form'] = names
+    # Extract jockeys in form (after "JOCKEYS EN FORME :")
+    jockeys_pattern = r'JOCKEYS\s+EN\s+FORME\s*:\s*([A-Z\.\s–\-\n]+?)(?=FAVORIS|EN\s+FIN|$)'
+    jockeys_match = re.search(jockeys_pattern, text, re.IGNORECASE | re.MULTILINE)
+    if jockeys_match:
+        text_block = jockeys_match.group(1)
+        # Split by dashes and filter valid names
+        names = [n.strip() for n in re.split(r'[–\-]', text_block)]
+        names = [n for n in names if n and len(n) > 2 and re.search(r'[A-Z]', n)]
+        if names:
+            best_week['jockeys_in_form'] = names
     
     return best_week

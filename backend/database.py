@@ -181,6 +181,17 @@ def init_database():
     )
     ''')
     
+    # Add indexes for optimal query performance
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_horses_race_id ON horses(race_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_predictions_race_id ON predictions(race_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_predictions_horse_id ON predictions(horse_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_horses_master_name ON horses_master(horse_name)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_horse_races_master_id ON horse_races(horse_master_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_horse_races_date ON horse_races(race_date)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_historical_races_date ON historical_races(race_date)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_historical_races_hippodrome ON historical_races(hippodrome)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_correlation_results_feature ON correlation_results(feature_name)')
+    
     conn.commit()
     conn.close()
 

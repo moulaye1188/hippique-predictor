@@ -339,6 +339,40 @@ def save_race_classements(race_id: int, classements: dict):
     conn.close()
 
 
+def save_race_arrivals(race_id: int, arrivals: dict, horses_df=None) -> bool:
+    """
+    Save race arrivals (results) to database
+    arrivals should be {'quartet': [7, 11, 2, 15], '1st': 7, '2nd': 11, '3rd': 2, '4th': 15}
+    """
+    if not arrivals or 'quartet' not in arrivals:
+        print("⚠️  No valid arrivals data to save")
+        return False
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        quartet = arrivals.get('quartet', [])
+        
+        # Update each horse with their position
+        for position, horse_number in enumerate(quartet, 1):
+            cursor.execute('''
+            UPDATE horses 
+            SET position_result = ? 
+            WHERE race_id = ? AND horse_number = ?
+            ''', (position, race_id, horse_number))
+        
+        conn.commit()
+        print(f"✅ Race {race_id} arrivals saved: {quartet}")
+        return True
+    
+    except Exception as e:
+        print(f"❌ Error saving race arrivals: {e}")
+        return False
+    finally:
+        conn.close()
+
+
 def get_race_with_enriched_data(race_id: int) -> dict:
     """Get complete race data with all enriched fields"""
     conn = sqlite3.connect(DB_PATH)

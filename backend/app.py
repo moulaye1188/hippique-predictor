@@ -17,8 +17,9 @@ import pandas as pd
 from config import STATIC_FOLDER, DB_PATH, MODEL_PATH, SCALER_PATH
 
 from pdf_parser_smart import parse_pdf_smart
-from database_schema_v2 import save_race_enriched, save_horse_enriched, save_race_pronostics, save_race_classements
+from database_schema_v2 import save_race_enriched, save_horse_enriched, save_race_pronostics, save_race_classements, save_race_arrivals
 from database import get_or_create_horse_master, add_horse_race, get_all_horses_master
+from dashboard_stats import get_dashboard_stats
 from model_v2 import UpgradedHippiqueModel
 
 app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path='')
@@ -88,8 +89,8 @@ def load_race_from_pdf_v2():
             temp_path = tmp.name
         
         try:
-            # Parse PDF
-            race_info, horses_df, pronostics, classements, best_week = parse_pdf_smart(temp_path)
+            # Parse PDF (now includes arrivals/results)
+            race_info, horses_df, pronostics, classements, best_week, arrivals = parse_pdf_smart(temp_path)
             
             if horses_df.empty:
                 return jsonify({'error': 'Failed to extract horses from PDF'}), 400
@@ -125,6 +126,19 @@ def load_race_from_pdf_v2():
                         weight=row.get('weight'),
                         imported_from=temp_path
                     )
+            
+            # NEW: Save race arrivals (results) if found in PDF
+            if arrivals:
+                print(f"✅ Race arrivals found in PDF: {arrivals.get('quartet')}")
+                if save_race_arrivals(race_id, arrivals, horses_df):
+                    print("🔄 Retraining model with new race results...")
+                    # Retrain model with the new data
+                    try:
+                        model.train()
+                        model.save()
+                        print("✅ Model retrained with new race data!")
+                    except Exception as e:
+                        print(f"⚠️  Could not retrain model: {e}")
             
             # Make predictions
             if model.model is not None:
@@ -194,18 +208,20 @@ def get_horses():
 
 @app.route('/api/dashboard', methods=['GET'])
 def get_dashboard():
-    """Get dashboard statistics"""
+    """Get comprehensive dashboard statistics"""
     try:
-        horses = get_all_horses_master()
-        
-        total_unique_horses = len(horses)
-        total_races_tracked = sum(h.get('total_races', 0) for h in horses)
+        stats = get_dashboard_stats()
         
         return jsonify({
-            'total_unique_horses': total_unique_horses,
-            'total_races_tracked': total_races_tracked,
-            'model_status': 'Prêt' if model.model is not None else 'En développement',
-            'data_quality': 'Excellente' if total_races_tracked >= 100 else 'Bonne' if total_races_tracked >= 50 else 'Acceptable' if total_races_tracked >= 20 else 'Faible'
+            'total_unique_horses': stats['total_unique_horses'],
+            'total_races_imported': stats['total_races_imported'],
+            'races_with_results': stats['races_with_results'],
+            'data_quality': stats['data_quality'],
+            'quality_score': stats['quality_score'],
+            'model_learning_status': stats['model_learning_status'],
+            'model_can_learn': stats['model_can_learn'],
+            'last_result_date': stats['last_result_date'],
+            'model_status': 'Prêt' if model.model is not None else 'En développement'
         }), 200
     
     except Exception as e:
