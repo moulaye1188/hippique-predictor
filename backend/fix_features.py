@@ -1,4 +1,7 @@
-"""Feature Engineering - Extract and encode enriched race data - ROBUST VERSION"""
+#!/usr/bin/env python3
+# Fix fillna in feature_engineering.py
+
+content = """\"\"\"Feature Engineering - Extract and encode enriched race data - ROBUST VERSION\"\"\"
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple
@@ -6,7 +9,7 @@ import re
 
 
 class RaceFeatureEngineer:
-    """Extract ML features from enriched race data"""
+    \"\"\"Extract ML features from enriched race data\"\"\"
     
     def __init__(self):
         self.trainers_form_cache = {}
@@ -14,7 +17,7 @@ class RaceFeatureEngineer:
     
     def engineer_race_features(self, race_data: Dict, horses_df: pd.DataFrame, 
                                classements: Dict, pronostics: Dict, best_week: Dict) -> pd.DataFrame:
-        """Create feature matrix from all enriched data - SAFE VERSION"""
+        \"\"\"Create feature matrix from all enriched data - SAFE VERSION\"\"\"
         df = horses_df.copy()
         
         # Ensure all required columns exist with defaults
@@ -89,7 +92,7 @@ class RaceFeatureEngineer:
         return df
     
     def _parse_perf(self, perf_str: str) -> float:
-        """Parse performance string"""
+        \"\"\"Parse performance string\"\"\"
         if not perf_str or pd.isna(perf_str):
             return 0.0
         try:
@@ -100,7 +103,7 @@ class RaceFeatureEngineer:
             return 0.0
     
     def _odds_to_probability(self, odds_str: str) -> float:
-        """Convert odds to probability"""
+        \"\"\"Convert odds to probability\"\"\"
         if not odds_str or pd.isna(odds_str):
             return 0.5
         try:
@@ -115,7 +118,7 @@ class RaceFeatureEngineer:
             return 0.5
     
     def _normalize_weight(self, weights: pd.Series) -> pd.Series:
-        """Normalize weights to 0-1"""
+        \"\"\"Normalize weights to 0-1\"\"\"
         weights_clean = weights.dropna()
         if len(weights_clean) == 0:
             return pd.Series([0.5] * len(weights))
@@ -129,11 +132,11 @@ class RaceFeatureEngineer:
         return (weights - min_w) / (max_w - min_w)
     
     def _parse_age(self, sexe_age_str: str) -> int:
-        """Extract age from sexe/age string"""
+        \"\"\"Extract age from sexe/age string\"\"\"
         if not sexe_age_str or pd.isna(sexe_age_str):
             return 3
         try:
-            match = re.search(r'\.(\d+)', str(sexe_age_str))
+            match = re.search(r'\\.(\\d+)', str(sexe_age_str))
             if match:
                 return int(match.group(1))
         except:
@@ -141,7 +144,7 @@ class RaceFeatureEngineer:
         return 3
     
     def _get_classement_score(self, horse_number: int, classements: Dict) -> float:
-        """Score based on classements"""
+        \"\"\"Score based on classements\"\"\"
         if not classements:
             return 0.0
         
@@ -164,7 +167,7 @@ class RaceFeatureEngineer:
         return min(1.0, score)
     
     def _get_pronostic_score(self, horse_number: int, pronostics: Dict) -> float:
-        """Score based on external pronostics"""
+        \"\"\"Score based on external pronostics\"\"\"
         if not pronostics:
             return 0.5
         
@@ -182,7 +185,7 @@ class RaceFeatureEngineer:
         return min(1.0, score)
     
     def _get_trainer_ranking(self, trainer_name: str, best_week: Dict) -> float:
-        """Score based on trainer in best of week"""
+        \"\"\"Score based on trainer in best of week\"\"\"
         if not trainer_name or pd.isna(trainer_name):
             return 0.5
         
@@ -195,7 +198,7 @@ class RaceFeatureEngineer:
         return 0.5
     
     def _get_jockey_ranking(self, jockey_name: str, best_week: Dict) -> float:
-        """Score based on jockey in best of week"""
+        \"\"\"Score based on jockey in best of week\"\"\"
         if not jockey_name or pd.isna(jockey_name):
             return 0.5
         
@@ -208,7 +211,7 @@ class RaceFeatureEngineer:
         return 0.5
     
     def get_feature_columns(self) -> List[str]:
-        """Return list of feature columns"""
+        \"\"\"Return list of feature columns\"\"\"
         return [
             'perf_score',
             'odds_paris_prob',
@@ -224,3 +227,9 @@ class RaceFeatureEngineer:
             'jockey_ranking',
             'expert_score'
         ]
+"""
+
+with open('/app/backend/feature_engineering.py', 'w') as f:
+    f.write(content)
+
+print("✅ Fixed")
