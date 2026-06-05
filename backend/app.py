@@ -6,6 +6,9 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import tempfile
 import os
+import json
+import numpy as np
+import pandas as pd
 
 from pdf_parser_smart import parse_pdf_smart
 from database_schema_v2 import save_race_enriched, save_horse_enriched, save_race_pronostics, save_race_classements
@@ -14,6 +17,23 @@ from model_v2 import UpgradedHippiqueModel
 
 app = Flask(__name__, static_folder='/app/frontend', static_url_path='')
 CORS(app)
+
+# Clean JSON encoder - handles NaN and NaT
+def clean_for_json(obj):
+    """Recursively clean object for JSON serialization"""
+    if isinstance(obj, dict):
+        return {k: clean_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [clean_for_json(item) for item in obj]
+    elif isinstance(obj, (float, np.floating)):
+        if np.isnan(obj) or np.isinf(obj):
+            return None
+        return float(obj)
+    elif isinstance(obj, (int, np.integer)):
+        return int(obj)
+    elif pd.isna(obj):
+        return None
+    return obj
 
 # Load model
 model = UpgradedHippiqueModel()
@@ -108,16 +128,18 @@ def load_race_from_pdf_v2():
                 horses_df['predicted_rank'] = horses_df['predicted_probability'].rank(ascending=False).astype(int)
                 predictions_list = horses_df.sort_values('predicted_rank').to_dict(orient='records')
             
-            return jsonify({
+            response_data = {
                 'success': True,
                 'race_id': race_id,
-                'race_info': race_info,
+                'race_info': clean_for_json(race_info),
                 'horses_imported': horses_saved,
-                'pronostics': pronostics,
-                'classements': classements,
-                'predictions': predictions_list,
+                'pronostics': clean_for_json(pronostics),
+                'classements': clean_for_json(classements),
+                'predictions': clean_for_json(predictions_list),
                 'message': f'Course chargée! {horses_saved} chevaux importés'
-            }), 200
+            }
+            
+            return jsonify(response_data), 200
         
         finally:
             # Clean up temp file
