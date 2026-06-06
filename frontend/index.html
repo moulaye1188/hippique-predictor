@@ -138,6 +138,27 @@
                     </table>
                 </div>
             </section>
+
+            <!-- Excluded Horses Section -->
+            <section class="card">
+                <h2>⛔ Chevaux Non-Partants</h2>
+                <p class="info-text">Entrez les numéros des chevaux non-partants, disqualifiés ou retirés (séparés par des virgules)</p>
+                <div class="form-group">
+                    <label for="excludedHorsesInput">Numéros à exclure (ex: 3, 4, 8):</label>
+                    <input 
+                        type="text" 
+                        id="excludedHorsesInput" 
+                        placeholder="3, 4, 8" 
+                        class="input-field"
+                    >
+                    <div class="button-group">
+                        <button class="btn btn-primary" onclick="saveExcludedHorses()">💾 Sauvegarder Exclusions</button>
+                        <button class="btn btn-secondary" onclick="loadExcludedHorses()">🔄 Charger Exclusions</button>
+                        <button class="btn btn-danger" onclick="clearExcludedHorses()">🗑️ Effacer</button>
+                    </div>
+                </div>
+                <div id="excludedHorsesStatus" class="status-message hidden"></div>
+            </section>
         </div>
 
         <!-- 4. Horses Master Tab -->

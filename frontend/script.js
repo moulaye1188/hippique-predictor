@@ -469,3 +469,119 @@ function showStatus(message, type = 'info') {
         }, 5000);
     }
 }
+
+
+// ========== EXCLUDED HORSES FUNCTIONS ==========
+
+async function saveExcludedHorses() {
+    if (!currentRaceData || !currentRaceData.race_info || !currentRaceData.race_info.id) {
+        showStatus('❌ Veuillez d\'abord charger une course', 'warning');
+        return;
+    }
+    
+    const input = document.getElementById('excludedHorsesInput').value.trim();
+    if (!input) {
+        showStatus('⚠️ Entrez des numéros de chevaux', 'warning');
+        return;
+    }
+    
+    // Parse comma-separated numbers
+    const excluded = input.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+    
+    if (excluded.length === 0) {
+        showStatus('⚠️ Format invalide. Entrez: 3, 4, 8', 'warning');
+        return;
+    }
+    
+    const raceId = currentRaceData.race_info.id;
+    
+    showStatus(`💾 Sauvegarde des chevaux exclus: ${excluded.join(', ')}`, 'loading');
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/update-excluded-horses`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                race_id: raceId,
+                excluded_horses: excluded
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            showStatus(`❌ Erreur: ${data.error}`, 'error');
+            return;
+        }
+        
+        showStatus(`✅ Chevaux exclus sauvegardés: ${excluded.join(', ')}`, 'success');
+        
+        // Display status
+        const statusDiv = document.getElementById('excludedHorsesStatus');
+        statusDiv.classList.remove('hidden');
+        statusDiv.className = 'status-message success';
+        statusDiv.innerHTML = `✅ <strong>Chevaux exclus:</strong> ${excluded.join(', ')}<br><em>Prédictions mises à jour - ces chevaux ne seront pas recommandés</em>`;
+        
+        // Reload predictions if available
+        if (currentRaceData) {
+            displayPredictions(currentRaceData);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        showStatus(`❌ Erreur: ${error.message}`, 'error');
+    }
+}
+
+
+async function loadExcludedHorses() {
+    if (!currentRaceData || !currentRaceData.race_info || !currentRaceData.race_info.id) {
+        showStatus('❌ Veuillez d\'abord charger une course', 'warning');
+        return;
+    }
+    
+    const raceId = currentRaceData.race_info.id;
+    
+    showStatus('🔄 Chargement des chevaux exclus...', 'loading');
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/get-excluded-horses/${raceId}`);
+        
+        if (!response.ok) {
+            showStatus('⚠️ Aucun cheval exclu trouvé pour cette course', 'warning');
+            document.getElementById('excludedHorsesInput').value = '';
+            return;
+        }
+        
+        const data = await response.json();
+        const excluded = data.excluded_horses || [];
+        
+        if (excluded.length === 0) {
+            showStatus('ℹ️ Aucun cheval exclu pour cette course', 'info');
+            document.getElementById('excludedHorsesInput').value = '';
+        } else {
+            document.getElementById('excludedHorsesInput').value = excluded.join(', ');
+            showStatus(`✅ Chevaux exclus chargés: ${excluded.join(', ')}`, 'success');
+            
+            // Display status
+            const statusDiv = document.getElementById('excludedHorsesStatus');
+            statusDiv.classList.remove('hidden');
+            statusDiv.className = 'status-message success';
+            statusDiv.innerHTML = `✅ <strong>Chevaux exclus:</strong> ${excluded.join(', ')}<br><em>Ces chevaux seront exclus des prédictions</em>`;
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        showStatus(`❌ Erreur: ${error.message}`, 'error');
+    }
+}
+
+
+function clearExcludedHorses() {
+    document.getElementById('excludedHorsesInput').value = '';
+    const statusDiv = document.getElementById('excludedHorsesStatus');
+    statusDiv.classList.add('hidden');
+    showStatus('🗑️ Champ vidé', 'info');
+}

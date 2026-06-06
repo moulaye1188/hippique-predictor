@@ -17,7 +17,7 @@ import pandas as pd
 from config import STATIC_FOLDER, DB_PATH, MODEL_PATH, SCALER_PATH
 
 from pdf_parser_smart import parse_pdf_smart
-from database_schema_v2 import save_race_enriched, save_horse_enriched, save_race_pronostics, save_race_classements, save_race_arrivals
+from database_schema_v2 import save_race_enriched, save_horse_enriched, save_race_pronostics, save_race_classements, save_race_arrivals, save_excluded_horses, get_excluded_horses
 from database import get_or_create_horse_master, add_horse_race, get_all_horses_master
 from dashboard_stats import get_dashboard_stats
 from model_v2 import UpgradedHippiqueModel
@@ -142,8 +142,11 @@ def load_race_from_pdf_v2():
             
             # Make predictions
             if model.model is not None:
+                # Load excluded horses from database
+                excluded_horses = get_excluded_horses(race_id)
                 predictions_df = model.predict_on_race(
-                    race_info, horses_df, classements, pronostics, best_week
+                    race_info, horses_df, classements, pronostics, best_week,
+                    excluded_horses
                 )
                 predictions_list = predictions_df.to_dict(orient='records')
             else:
@@ -222,6 +225,64 @@ def get_dashboard():
             'model_can_learn': stats['model_can_learn'],
             'last_result_date': stats['last_result_date'],
             'model_status': 'Prêt' if model.model is not None else 'En développement'
+        }), 200
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/update-excluded-horses', methods=['POST'])
+def update_excluded_horses():
+    """
+    Update excluded horses (non-partants) for a race
+    
+    Request body:
+    {
+        "race_id": 1,
+        "excluded_horses": [3, 4, 8]
+    }
+    """
+    try:
+        data = request.get_json()
+        race_id = data.get('race_id')
+        excluded_horses = data.get('excluded_horses', [])
+        
+        if not race_id:
+            return jsonify({'error': 'race_id required'}), 400
+        
+        # Validate excluded_horses is a list of integers
+        if not isinstance(excluded_horses, list):
+            return jsonify({'error': 'excluded_horses must be a list'}), 400
+        
+        excluded_horses = [int(h) for h in excluded_horses]
+        
+        # Save to database
+        success = save_excluded_horses(race_id, excluded_horses)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'Excluded horses for race {race_id} updated: {excluded_horses}',
+                'excluded_horses': excluded_horses
+            }), 200
+        else:
+            return jsonify({'error': 'Failed to save excluded horses'}), 500
+    
+    except ValueError as e:
+        return jsonify({'error': f'Invalid data format: {str(e)}'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/get-excluded-horses/<int:race_id>', methods=['GET'])
+def get_excluded_horses_route(race_id):
+    """Get excluded horses for a specific race"""
+    try:
+        excluded_horses = get_excluded_horses(race_id)
+        
+        return jsonify({
+            'race_id': race_id,
+            'excluded_horses': excluded_horses
         }), 200
     
     except Exception as e:

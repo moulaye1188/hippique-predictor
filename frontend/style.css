@@ -492,3 +492,114 @@ body {
         padding: 10px;
     }
 }
+
+
+/* ========== EXCLUDED HORSES FORM STYLES ========== */
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: var(--dark);
+}
+
+.input-field {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 1em;
+    transition: all 0.3s;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.input-field:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+}
+
+.btn-secondary {
+    background: #64748b;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #475569;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(100, 116, 139, 0.4);
+}
+
+.btn-danger:hover {
+    background: #b91c1c;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+}
+
+.status-message {
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+    border-left: 4px solid;
+    animation: slideIn 0.3s;
+}
+
+.status-message.success {
+    background: #dcfce7;
+    color: #166534;
+    border-left-color: var(--success);
+}
+
+.status-message.error {
+    background: #fee2e2;
+    color: #991b1b;
+    border-left-color: var(--danger);
+}
+
+.status-message.warning {
+    background: #fed7aa;
+    color: #92400e;
+    border-left-color: var(--warning);
+}
+
+.status-message.info {
+    background: #dbeafe;
+    color: #1e40af;
+    border-left-color: var(--primary);
+}
+
+.status-message.hidden {
+    display: none;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.info-text {
+    color: #666;
+    font-size: 0.95em;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: var(--light);
+    border-radius: 6px;
+    border-left: 3px solid var(--warning);
+}

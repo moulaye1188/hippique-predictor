@@ -120,8 +120,22 @@ class UpgradedHippiqueModel:
         return True
     
     def predict_on_race(self, race_info: dict, horses_df: pd.DataFrame, 
-                       classements: dict, pronostics: dict, best_week: dict) -> pd.DataFrame:
-        """Make predictions for a race"""
+                       classements: dict, pronostics: dict, best_week: dict,
+                       excluded_horses: list = None) -> pd.DataFrame:
+        """
+        Make predictions for a race
+        
+        Args:
+            race_info: Race information dict
+            horses_df: DataFrame with horses
+            classements: Race classements dict
+            pronostics: Race pronostics dict
+            best_week: Best week dict
+            excluded_horses: List of horse numbers to exclude (e.g., [3, 4, 8])
+        
+        Returns:
+            DataFrame with predictions, excluding non-partants
+        """
         if self.model is None or self.scaler is None:
             raise ValueError("Model not trained yet!")
         
@@ -129,6 +143,17 @@ class UpgradedHippiqueModel:
         features_df = self.feature_engineer.engineer_race_features(
             race_info, horses_df, classements, pronostics, best_week
         )
+        
+        # Filter out excluded horses
+        if excluded_horses:
+            excluded_horses = [int(h) for h in excluded_horses]
+            features_df = features_df[~features_df['horse_number'].isin(excluded_horses)].copy()
+            print(f"ℹ️  Excluded horses: {excluded_horses}")
+            print(f"ℹ️  Horses remaining for prediction: {len(features_df)}")
+        
+        if len(features_df) == 0:
+            print("❌ No valid horses to predict on after exclusions!")
+            return pd.DataFrame()
         
         # Get features
         X = features_df[self.feature_columns].fillna(value=0.5).values

@@ -405,3 +405,75 @@ def get_race_with_enriched_data(race_id: int) -> dict:
         'pronostics': pronostics,
         'classements': classements
     }
+
+
+def save_excluded_horses(race_id: int, excluded_horse_numbers: list) -> bool:
+    """
+    Save excluded horses (non-partants) for a specific race
+    
+    Args:
+        race_id: Race ID
+        excluded_horse_numbers: List of horse numbers to exclude (e.g., [3, 4, 8])
+    
+    Returns:
+        bool: True if successful
+    """
+    import json
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Convert list to JSON string
+        excluded_json = json.dumps(excluded_horse_numbers)
+        
+        # Update or insert
+        cursor.execute('''
+        UPDATE races
+        SET excluded_horses = ?
+        WHERE id = ?
+        ''', (excluded_json, race_id))
+        
+        conn.commit()
+        print(f"✅ Race {race_id}: Excluded horses saved: {excluded_horse_numbers}")
+        return True
+    
+    except Exception as e:
+        print(f"❌ Error saving excluded horses: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def get_excluded_horses(race_id: int) -> list:
+    """
+    Get excluded horses for a specific race
+    
+    Args:
+        race_id: Race ID
+    
+    Returns:
+        list: List of excluded horse numbers (e.g., [3, 4, 8])
+    """
+    import json
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+        SELECT excluded_horses FROM races WHERE id = ?
+        ''', (race_id,))
+        
+        result = cursor.fetchone()
+        if result and result[0]:
+            excluded_json = result[0]
+            return json.loads(excluded_json)
+        
+        return []
+    
+    except Exception as e:
+        print(f"❌ Error getting excluded horses: {e}")
+        return []
+    finally:
+        conn.close()
