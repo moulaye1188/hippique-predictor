@@ -4,12 +4,14 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import joblib
 import os
 
-from config import MODEL_PATH, SCALER_PATH
+from config import MODEL_PATH, SCALER_PATH, PIPELINE_PATH
 from feature_engineering import RaceFeatureEngineer
 
 
@@ -18,17 +20,18 @@ class UpgradedHippiqueModel:
     
     def __init__(self):
         self.model = None
-        self.scaler = None
+        self.pipeline = None  # Contains imputation + scaling
         self.feature_engineer = RaceFeatureEngineer()
         self.feature_columns = self.feature_engineer.get_feature_columns()
     
     def train(self, races_data: list, model_type='random_forest'):
-        """Train model on multiple races"""
+        """Train model on multiple races - WITH TEMPORAL SPLIT"""
         print(f"Training {model_type} model on {len(races_data)} races...\n")
         
         # Engineer features for all races
         X_list = []
         y_list = []
+        race_dates = []
         
         for i, race in enumerate(races_data):
             try:
@@ -40,18 +43,27 @@ class UpgradedHippiqueModel:
                     race.get('best_week', {})
                 )
                 
-                X = horses_df[self.feature_columns].fillna(value=0.5).values
+                # ✅ CRITICAL FIX: Only use races with real result_position labels
+                if 'result_position' not in horses_df.columns:
+                    print(f"  ⚠️  Race {i+1}: Skipped (no result_position column)")
+                    continue
                 
-                # Labels: use result_position if available, else use expert_score as proxy
-                if 'result_position' in horses_df.columns:
-                    y = (horses_df['result_position'] == 1).astype(int).values
-                else:
-                    # For now, use expert_score as soft labels
-                    y = (horses_df['expert_score'] > 0.4).astype(int).values
+                # Skip if all result_position values are NaN
+                if horses_df['result_position'].isna().all():
+                    print(f"  ⚠️  Race {i+1}: Skipped (all result_position are NaN)")
+                    continue
+                
+                X = horses_df[self.feature_columns].values
+                y = (horses_df['result_position'] == 1).astype(int).values
                 
                 X_list.append(X)
                 y_list.append(y)
-                print(f"  Race {i+1}: {len(X)} horses, {np.sum(y)} winners")
+                
+                # ✅ TEMPORAL FIX: Track race dates for chronological split
+                race_date = race.get('race_info', {}).get('date', '1900-01-01')
+                race_dates.extend([race_date] * len(X))
+                
+                print(f"  Race {i+1}: {len(X)} horses, {np.sum(y)} winners, date={race_date}")
             
             except Exception as e:
                 print(f"  ❌ Error processing race {i+1}: {e}")
@@ -68,23 +80,50 @@ class UpgradedHippiqueModel:
         print(f"Winners: {np.sum(y_combined)}")
         print(f"Non-winners: {len(y_combined) - np.sum(y_combined)}\n")
         
-        # Split train/test
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_combined, y_combined, test_size=0.2, random_state=42, stratify=y_combined
-        )
+        # ✅ TEMPORAL FIX: Sort by date for chronological split (not random)
+        sorted_indices = sorted(range(len(race_dates)), key=lambda i: race_dates[i])
+        X_combined_sorted = X_combined[sorted_indices]
+        y_combined_sorted = y_combined[sorted_indices]
         
-        # Scale features
-        self.scaler = StandardScaler()
-        X_train_scaled = self.scaler.fit_transform(X_train)
-        X_test_scaled = self.scaler.transform(X_test)
+        # Split 80/20 chronologically (older=train, newer=test)
+        split_idx = int(0.8 * len(X_combined_sorted))
+        X_train = X_combined_sorted[:split_idx]
+        X_test = X_combined_sorted[split_idx:]
+        y_train = y_combined_sorted[:split_idx]
+        y_test = y_combined_sorted[split_idx:]
         
-        # Train model
+        print(f"Train set: {len(X_train)} samples (older races)")
+        print(f"Test set:  {len(X_test)} samples (newer races)\n")
+        
+        # ✅ ROBUSTNESS FIX: Use Pipeline with SimpleImputer for proper scaling
+        self.pipeline = Pipeline([
+            ('imputer', SimpleImputer(strategy='median')),  # Median imputation (not naive 0.5)
+            ('scaler', StandardScaler())
+        ])
+        
+        X_train_scaled = self.pipeline.fit_transform(X_train)
+        X_test_scaled = self.pipeline.transform(X_test)
+        
+        # ✅ CLASS IMBALANCE FIX: Add class_weight='balanced' for imbalanced data
         if model_type == 'random_forest':
-            self.model = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42)
+            self.model = RandomForestClassifier(
+                n_estimators=100,
+                max_depth=10,
+                random_state=42,
+                class_weight='balanced'  # ← FIX: Handle imbalanced classes
+            )
         elif model_type == 'gradient_boosting':
-            self.model = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, random_state=42)
+            self.model = GradientBoostingClassifier(
+                n_estimators=100,
+                learning_rate=0.1,
+                random_state=42
+            )
         elif model_type == 'neural_network':
-            self.model = MLPClassifier(hidden_layer_sizes=(64, 32), max_iter=500, random_state=42)
+            self.model = MLPClassifier(
+                hidden_layer_sizes=(64, 32),
+                max_iter=500,
+                random_state=42
+            )
         else:
             raise ValueError(f"Unknown model type: {model_type}")
         
@@ -156,8 +195,8 @@ class UpgradedHippiqueModel:
             return pd.DataFrame()
         
         # Get features
-        X = features_df[self.feature_columns].fillna(value=0.5).values
-        X_scaled = self.scaler.transform(X)
+        X = features_df[self.feature_columns].values
+        X_scaled = self.pipeline.transform(X)
         
         # Predict probabilities
         if hasattr(self.model, 'predict_proba'):
@@ -172,27 +211,27 @@ class UpgradedHippiqueModel:
         return features_df.sort_values('predicted_rank')
     
     def save(self):
-        """Save model and scaler"""
-        if self.model is None or self.scaler is None:
+        """Save model and pipeline"""
+        if self.model is None or self.pipeline is None:
             print("❌ Nothing to save - model not trained!")
             return False
         
-        os.makedirs("/app/models", exist_ok=True)
+        os.makedirs(os.path.dirname(MODEL_PATH) or '.', exist_ok=True)
         
         joblib.dump(self.model, MODEL_PATH)
-        joblib.dump(self.scaler, SCALER_PATH)
+        joblib.dump(self.pipeline, PIPELINE_PATH)
         print(f"✓ Model saved to {MODEL_PATH}")
-        print(f"✓ Scaler saved to {SCALER_PATH}\n")
+        print(f"✓ Pipeline saved to {PIPELINE_PATH}\n")
         return True
     
     def load(self):
-        """Load model and scaler"""
-        if not os.path.exists(MODEL_PATH) or not os.path.exists(SCALER_PATH):
+        """Load model and pipeline"""
+        if not os.path.exists(MODEL_PATH) or not os.path.exists(PIPELINE_PATH):
             print("❌ Model files not found!")
             return False
         
         self.model = joblib.load(MODEL_PATH)
-        self.scaler = joblib.load(SCALER_PATH)
+        self.pipeline = joblib.load(PIPELINE_PATH)
         print(f"✓ Model loaded from {MODEL_PATH}")
-        print(f"✓ Scaler loaded from {SCALER_PATH}\n")
+        print(f"✓ Pipeline loaded from {PIPELINE_PATH}\n")
         return True

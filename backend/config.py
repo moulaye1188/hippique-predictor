@@ -25,6 +25,7 @@ MODELS_DIR.mkdir(exist_ok=True, parents=True)
 DB_PATH = str(DATA_DIR / 'hippique.db')
 MODEL_PATH = str(MODELS_DIR / 'hippique_model_v2.pkl')
 SCALER_PATH = str(MODELS_DIR / 'scaler_v2.pkl')
+PIPELINE_PATH = str(MODELS_DIR / 'pipeline_v2.pkl')
 
 # Configuration Flask
 FLASK_ENV = os.getenv('FLASK_ENV', 'development')

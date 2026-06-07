@@ -21,6 +21,7 @@ from database_schema_v2 import save_race_enriched, save_horse_enriched, save_rac
 from database import get_or_create_horse_master, add_horse_race, get_all_horses_master
 from dashboard_stats import get_dashboard_stats
 from model_v2 import UpgradedHippiqueModel
+from france_galop_scraper import FranceGalopScraper, ScratchListFilter
 
 app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path='')
 CORS(app)
@@ -94,6 +95,23 @@ def load_race_from_pdf_v2():
             
             if horses_df.empty:
                 return jsonify({'error': 'Failed to extract horses from PDF'}), 400
+            
+            # ✅ NEW: Fetch scratch-list from France-Galop (withdrawals, jockey changes)
+            scratch_list = FranceGalopScraper.get_scratch_list(
+                date=race_info.get('race_date'),
+                hippodrome=race_info.get('hippodrome')
+            )
+            
+            # ✅ NEW: Filter withdrawn horses
+            horses_before = len(horses_df)
+            horses_df, excluded_from_scrape = ScratchListFilter.filter_horses(horses_df, scratch_list)
+            horses_after = len(horses_df)
+            
+            if horses_before > horses_after:
+                print(f"\u2705 Scratch-list applied: {horses_before} → {horses_after} horses (excluded: {excluded_from_scrape})")
+            
+            # ✅ NEW: Apply jockey changes from France-Galop
+            horses_df = ScratchListFilter.apply_jockey_changes(horses_df, scratch_list.get('jockey_changes', {}))
             
             # Save to DB
             race_id = save_race_enriched(race_info)

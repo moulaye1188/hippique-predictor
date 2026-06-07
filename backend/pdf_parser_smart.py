@@ -3,6 +3,7 @@ import re
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple, Optional
+from hippodrome_coords import get_hippodrome_coords
 
 def convert_to_native_types(obj):
     """Convert NumPy/pandas types to native Python types"""
@@ -85,6 +86,17 @@ def parse_pdf_smart(file_path: str) -> Tuple[Dict, pd.DataFrame, Dict, Dict, Dic
     
     # Convert to DataFrame
     df = pd.DataFrame(horses_list)
+    
+    # ✅ NEW: Add GPS coordinates from hippodrome mapping
+    if 'hippodrome' in race_info:
+        coords = get_hippodrome_coords(race_info['hippodrome'])
+        race_info['latitude'] = coords['latitude']
+        race_info['longitude'] = coords['longitude']
+    
+    # ✅ NEW: Ensure date is in correct format for weather API (YYYY-MM-DD)
+    if 'race_date' in race_info and race_info['race_date']:
+        # race_date should already be YYYY-MM-DD from _parse_race_header
+        race_info['date'] = race_info['race_date']
     
     # Convert to native types
     race_info = convert_to_native_types(race_info)
